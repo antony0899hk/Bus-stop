@@ -5,6 +5,8 @@ const TD_TRAFFIC = "https://www.td.gov.hk/tc/special_news/trafficnews.xml";
 const TRAFFIC_PROXY = "./api/traffic";
 const SHORT_NEARBY_COUNT = 8;
 const MAX_NEARBY_COUNT = 40;
+const GMB_ROUTE_PARTS = 8;
+const GMB_STOP_PARTS = 16;
 
 const state = {
   kmbRoutes: [], ctbRoutes: [], gmbRoutes: [],
@@ -85,8 +87,8 @@ async function bootstrap() {
     getJSON("./kmb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.kmbStops.set(String(s.stop), s))).catch(() => errors.push("九巴站點")),
     getJSON("./ctb-routes.json", { ttl: 3600000 }).then(j => state.ctbRoutes = j.data || []).catch(() => errors.push("城巴路線")),
     getJSON("./ctb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.ctbStops.set(String(s.stop), s))).catch(() => errors.push("城巴站點")),
-    getJSON("./gmb-routes.json", { ttl: 3600000 }).then(j => state.gmbRoutes = j.data || []).catch(() => errors.push("小巴路線")),
-    getJSON("./gmb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.gmbStops.set(String(s.stop), s))).catch(() => errors.push("小巴站點"))
+    Promise.all(Array.from({length:GMB_ROUTE_PARTS}, (_,i) => getJSON(`./gmb-routes-${i}.json`, { ttl:3600000 }))).then(parts => state.gmbRoutes = parts.flatMap(j => j.data || [])).catch(() => errors.push("小巴路線")),
+    Promise.all(Array.from({length:GMB_STOP_PARTS}, (_,i) => getJSON(`./gmb-stops-${i}.json`, { ttl:3600000 }))).then(parts => parts.flatMap(j => j.data || []).forEach(s => state.gmbStops.set(String(s.stop), s))).catch(() => errors.push("小巴站點"))
   ];
   await Promise.allSettled(jobs);
   const total = normalizedRoutes().length;
