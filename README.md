@@ -21,7 +21,7 @@ Mobile-first 香港公共交通實時 ETA PWA，沿用原有無 framework、GitH
 - 綠色專線小巴：`https://data.etagmb.gov.hk`
 - 交通消息：運輸署 Special Traffic News XML
 
-小巴完整站點索引由 `scripts/generate-gmb-data.mjs` 在 GitHub Pages 部署時使用官方 route、route-stop、stop API 產生；實時 ETA 仍由瀏覽器直接向官方 API 查詢。工作流程亦會逢星期一更新索引。
+小巴完整站點索引由 `scripts/generate-gmb-data.mjs` 使用官方 route、route-stop、stop API 產生，並分成小檔案以提升 iPhone 載入可靠度；實時 ETA 仍由瀏覽器直接向官方 API 查詢。工作流程亦會逢星期一更新索引。
 
 ## 本機執行
 
