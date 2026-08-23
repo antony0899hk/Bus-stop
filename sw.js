@@ -1,6 +1,6 @@
 const CACHE = "daozhan-v3.0.0";
 const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon.svg"];
-const DATA = ["./ctb-stops.json", "./kmb-stops.json", "./ctb-routes.json", "./kmb-routes.json", "./gmb-stops.json", "./gmb-routes.json"];
+const DATA = ["./ctb-stops.json", "./kmb-stops.json", "./ctb-routes.json", "./kmb-routes.json", ...Array.from({length:8},(_,i)=>`./gmb-routes-${i}.json`), ...Array.from({length:16},(_,i)=>`./gmb-stops-${i}.json`)];
 self.addEventListener("install", event => {
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE).then(() => Promise.allSettled(DATA.map(path => cache.add(path))))));
