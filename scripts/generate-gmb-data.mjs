@@ -87,6 +87,8 @@ try { generatedData = await fromOfficialApi(); }
 catch (error) { console.warn(error.message); generatedData = await fromPublishedMirror(); }
 const { routes, stops } = generatedData;
 const generated = new Date().toISOString();
-await writeFile("gmb-routes.json", JSON.stringify({ generated_timestamp:generated, data:routes }));
-await writeFile("gmb-stops.json", JSON.stringify({ generated_timestamp:generated, data:stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.long) && s.enabled) }));
+const enabledStops = stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.long) && s.enabled);
+const writeParts = async (prefix, values, count) => Promise.all(Array.from({length:count}, (_,i) => writeFile(`${prefix}-${i}.json`, JSON.stringify({ generated_timestamp:generated, data:values.filter((_,index) => index % count === i) }))));
+await writeParts("gmb-routes", routes, 8);
+await writeParts("gmb-stops", enabledStops, 16);
 console.log(`Generated ${routes.length} GMB directions and ${stops.length} stops.`);
