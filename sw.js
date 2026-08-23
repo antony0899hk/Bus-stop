@@ -1,13 +1,14 @@
-const CACHE = "daozhan-v2.1.2";
-const ASSETS = ["./","./index.html","./styles.css","./app.js","./manifest.json","./icon.svg","./ctb-stops.json","./kmb-stops.json","./ctb-routes.json","./kmb-routes.json"];
-self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))));
-self.addEventListener("activate", e => e.waitUntil(Promise.all([
-  caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),
-  self.clients.claim()
-])));
-self.addEventListener("fetch", e => {
-  if(e.request.method!=="GET")return;
-  const u=new URL(e.request.url);
-  if(u.hostname!==self.location.hostname)return;
-  e.respondWith(fetch(e.request).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return r;}).catch(()=>caches.match(e.request)));
+const CACHE = "daozhan-v3.0.0";
+const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon.svg"];
+const DATA = ["./ctb-stops.json", "./kmb-stops.json", "./ctb-routes.json", "./kmb-routes.json", "./gmb-stops.json", "./gmb-routes.json"];
+self.addEventListener("install", event => {
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE).then(() => Promise.allSettled(DATA.map(path => cache.add(path))))));
+});
+self.addEventListener("activate", event => event.waitUntil(Promise.all([caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))), self.clients.claim()])));
+self.addEventListener("fetch", event => {
+  if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  if (url.hostname !== self.location.hostname) return;
+  event.respondWith(fetch(event.request).then(response => { if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put(event.request, copy)); } return response; }).catch(() => caches.match(event.request)));
 });
