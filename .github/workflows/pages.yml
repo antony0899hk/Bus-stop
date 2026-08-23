@@ -22,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Generate official GMB route and stop index
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: node scripts/generate-gmb-data.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
