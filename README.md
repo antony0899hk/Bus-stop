@@ -1,43 +1,42 @@
-# 到站 V2.1
+# 到站 V3.0
 
-Mobile-first 香港巴士實時 ETA PWA。保留原 V2 無 framework 架構，可直接放到 GitHub Pages。
+Mobile-first 香港公共交通實時 ETA PWA，沿用原有無 framework、GitHub Pages 架構。
 
 ## 已完成
 
-- 九巴／龍運及城巴路線搜尋、雙向站序、每站最多三班 ETA
-- 收藏「營辦商＋路線＋方向＋上車站」，首頁直接更新三班 ETA
-- 只搜尋 100m 內九巴／城巴站，合併、去重及按到站時間排序；先顯示 8 班
-- 運輸署 Special Traffic News：事故、位置、方向、發布／更新、持續時間、狀態及摘要
-- Warning 與常搭文字位置有明顯重疊時，只標示「可能受影響」
-- API 各自容錯、定位拒絕 fallback、iPhone safe-area／44px touch targets
-- PWA manifest、service worker 更新策略、GitHub Pages workflow
-- 點到點資料／UI 架構預留（200–300m，與 100m 功能分開）
+- 九巴／龍運、城巴及綠色專線小巴路線搜尋、方向、站序及每站最多三班 ETA
+- 統一資料欄位：`operator`、`route`、`direction/bound`、`stopId`、`stopName`、`destination`、`eta`、`lat`、`lng/long`
+- 收藏「營辦商＋路線＋方向＋常用站」，Safari／PWA 重開後仍保留並在首頁更新 ETA
+- 100m 內混合九巴、城巴、小巴 ETA，去重及按到站時間排序
+- 全部／九巴／城巴／小巴／MTR Filter；MTR 只預留架構，不顯示假 ETA
+- 100m 清單預設 8 班；「顯示更多 ↓／收起 ↑」雙向 toggle，展開時頂部亦有 sticky 收起按鈕
+- 運輸署 Special Traffic News、首次見到時間、最新更新、持續時間、狀態及可能受影響常搭
+- API 獨立容錯、20 秒 ETA cache、有限 concurrency、定位拒絕 fallback、iPhone safe-area 及 44px touch targets
+- PWA service worker cache `daozhan-v3.0.0`
 
-城巴官方 API 沒有全站一次下載 endpoint；部署包內 `ctb-stops.json` 由 HK Bus Crawling 每日整合資料生成（原始資料仍來自營辦商／政府開放數據）。可執行 `node scripts/generate-ctb-stops.mjs` 更新。資料整合來源：[HK Bus Crawling](https://github.com/hkbus/hk-bus-crawling)。
+## 官方資料來源
 
-九巴／龍運站點索引直接由官方 stop list 生成；可執行 `node scripts/generate-kmb-stops.mjs` 更新。兩份索引只包含站名及座標，ETA 仍為即時請求。
+- 九巴／龍運：`https://data.etabus.gov.hk/v1/transport/kmb`
+- 城巴：`https://rt.data.gov.hk/v2/transport/citybus`
+- 綠色專線小巴：`https://data.etagmb.gov.hk`
+- 交通消息：運輸署 Special Traffic News XML
+
+小巴完整站點索引由 `scripts/generate-gmb-data.mjs` 在 GitHub Pages 部署時使用官方 route、route-stop、stop API 產生；實時 ETA 仍由瀏覽器直接向官方 API 查詢。工作流程亦會逢星期一更新索引。
 
 ## 本機執行
 
+先產生小巴資料，再啟動靜態伺服器：
+
 ```bash
+node scripts/generate-gmb-data.mjs
 python -m http.server 8000
 ```
 
-開啟 `http://localhost:8000`。手機定位在正式環境需要 HTTPS（localhost 除外）。
-
-## GitHub Pages
-
-將資料夾內容 push 到 `main`，在 repository Settings → Pages 將 Source 設為 GitHub Actions；`.github/workflows/pages.yml` 會部署整個靜態 app。
-
-## Traffic Warning proxy（可選）
-
-運輸署 endpoint 現時有 CORS，但 app 亦會在直連失敗時嘗試 `./api/traffic`。`proxy/cloudflare-worker.js` 是免費 Cloudflare Workers 範例。部署後可將 `app.js` 內 `TRAFFIC_PROXY` 改成 Worker 的完整 `/api/traffic` URL。Warning API 失敗只會隱藏提示，不會影響 ETA。
-
 ## 限制
 
-- 運輸署 XML 只提供每則消息目前的 `ANNOUNCEMENT_DATE`。App 會按事故編號在本機保存最早見過的時間；若首次開 App 時消息已是 UPDATED，無法追溯官方最初發布時間，畫面會以最早可取得的官方時間顯示。
-- 「可能受影響」只在事故道路名稱與收藏的起點／終點／站名有清楚文字重疊時顯示，未建立完整路線道路 GIS 關聯，絕不宣稱一定延誤。
-- 點到點 routing engine、小巴及港鐵 live data 尚未接入；目前只保留模式與距離設定架構。
-- ETA、站點及交通消息均取決於資料供應者，可能暫停、延遲或沒有預報。
+- MTR 目前只保留 filter、`operator = MTR` 及點到點 adapter 位置，未展示 Next Train 假資料。
+- 點到點 routing engine 尚未完成；100m 即將到站與預留的 200–300m 點到點搜尋互相獨立。
+- 運輸署 XML 若受 CORS 阻擋會嘗試 `./api/traffic` fallback；兩者均失敗只會隱藏 Warning，不影響 ETA。
+- ETA 視乎官方資料供應，個別班次沒有資料時顯示「未有預報」。
 
-資料來源：運輸署、九巴／龍運及城巴開放數據。到站為非官方應用，並非任何營辦商官方產品。
+資料來源：香港運輸署、九巴／龍運及城巴開放數據。到站為非官方應用，資料只供參考。
