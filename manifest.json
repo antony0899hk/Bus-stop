@@ -1,0 +1,13 @@
+{
+  "name": "到站 V2",
+  "short_name": "到站",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#ffffff",
+  "lang": "zh-HK",
+  "description": "香港九巴、龍運及城巴實時到站時間與100米附近班次",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

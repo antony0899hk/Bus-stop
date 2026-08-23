@@ -1,0 +1,12 @@
+import { writeFile } from 'node:fs/promises';
+const SOURCE='https://data.etabus.gov.hk/v1/transport/kmb/stop';
+const response=await fetch(SOURCE);
+if(!response.ok)throw Error(response.status);
+const json=await response.json();
+await writeFile(new URL('../kmb-stops.json',import.meta.url),JSON.stringify({generated:new Date().toISOString(),source:SOURCE,data:json.data||[]}));
+const routeSource='https://data.etabus.gov.hk/v1/transport/kmb/route/';
+const routeResponse=await fetch(routeSource);
+if(!routeResponse.ok)throw Error(routeResponse.status);
+const routes=await routeResponse.json();
+await writeFile(new URL('../kmb-routes.json',import.meta.url),JSON.stringify({generated:new Date().toISOString(),source:routeSource,data:routes.data||[]}));
+console.log(`Wrote ${(json.data||[]).length} KMB/LWB stops and ${(routes.data||[]).length} route directions`);
