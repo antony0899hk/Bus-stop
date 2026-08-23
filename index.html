@@ -11,82 +11,46 @@
 <body>
   <main class="app">
     <header class="topbar">
-      <div>
-        <h1>到站</h1>
-        <p>九巴／龍運・城巴實時 ETA</p>
-      </div>
-      <div class="operator-legend">
-        <span class="badge kmb">九巴</span>
-        <span class="badge ctb">城巴</span>
-      </div>
+      <div><h1>到站</h1><p>九巴／龍運・城巴・小巴實時 ETA</p></div>
+      <div class="operator-legend"><span class="badge kmb">九巴</span><span class="badge ctb">城巴</span><span class="badge gmb">小巴</span></div>
     </header>
 
-    <section id="traffic-warning" class="warning hidden">
-      <div class="warning-title">⚠️ 交通提示</div>
-      <div id="warning-text"></div>
-      <div id="warning-meta" class="warning-meta"></div>
-    </section>
+    <section id="traffic-warning" class="warning hidden"><div class="warning-title">⚠️ 交通提示</div><div id="warning-text"></div><div id="warning-meta" class="warning-meta"></div></section>
 
     <section id="favoritesSection" class="section hidden">
-      <div class="section-head">
-        <h2>⭐ 我的常搭</h2>
-        <button id="clearFavs" class="text-btn">清除</button>
-      </div>
-      <div id="favorites"></div>
+      <div class="section-head"><h2>⭐ 我的常搭</h2><button id="clearFavs" class="text-btn">清除</button></div><div id="favorites"></div>
     </section>
 
-    <section class="nearby-panel">
-      <div>
-        <div class="panel-title">📍 100m 即將到站</div>
-        <div id="nearbyStatus" class="status">撳下面按鈕使用手機定位</div>
-      </div>
-      <button id="locateBtn" class="primary-btn">使用目前位置</button>
-    </section>
+    <section class="nearby-panel"><div><div class="panel-title">📍 100m 即將到站</div><div id="nearbyStatus" class="status">撳下面按鈕使用手機定位</div></div><button id="locateBtn" class="primary-btn">使用目前位置</button></section>
 
     <section id="nearbySection" class="section hidden">
-      <div class="section-head">
-        <h2>附近最快到站</h2>
-        <span id="nearbyCount" class="small-muted"></span>
+      <div class="section-head"><h2>附近最快到站</h2><span id="nearbyCount" class="small-muted"></span></div>
+      <div class="filter-row" aria-label="附近班次營辦商篩選">
+        <button class="filter active" data-near-filter="all">全部</button><button class="filter kmb-filter" data-near-filter="KMB">九巴</button><button class="filter ctb-filter" data-near-filter="CTB">城巴</button><button class="filter gmb-filter" data-near-filter="GMB">小巴</button><button class="filter mtr-filter" data-near-filter="MTR">MTR</button>
       </div>
-      <div class="filter-row">
-        <button class="filter active" data-near-filter="all">全部</button>
-        <button class="filter" data-near-filter="KMB">九巴</button>
-        <button class="filter" data-near-filter="CTB">城巴</button>
-      </div>
-      <div id="nearbyResults"></div>
-      <button id="nearbyMore" class="more-btn hidden">顯示更多</button>
+      <button id="nearbyCollapseTop" class="more-btn compact hidden">收起 ↑</button>
+      <div id="nearbyResults"></div><button id="nearbyMore" class="more-btn hidden">顯示更多 ↓</button>
     </section>
 
     <section class="search-panel">
       <label for="routeSearch">搜尋路線</label>
-      <div class="search-row">
-        <input id="routeSearch" inputmode="text" autocomplete="off" placeholder="例如 270A、68X、978" />
-        <button id="searchBtn">搜尋</button>
+      <div class="search-row"><input id="routeSearch" inputmode="text" autocomplete="off" placeholder="例如 270A、978、55K" /><button id="searchBtn">搜尋</button></div>
+      <div class="filter-row search-filters" aria-label="搜尋營辦商篩選">
+        <button class="filter active" data-search-filter="all">全部</button><button class="filter kmb-filter" data-search-filter="KMB">九巴</button><button class="filter ctb-filter" data-search-filter="CTB">城巴</button><button class="filter gmb-filter" data-search-filter="GMB">小巴</button><button class="filter mtr-filter" data-search-filter="MTR">MTR</button>
       </div>
-      <div id="status" class="status">正在載入巴士資料…</div>
+      <div id="status" class="status">正在載入路線資料…</div>
     </section>
 
-    <section id="resultsSection" class="section hidden">
-      <h2>搜尋結果</h2>
-      <div id="results"></div>
-    </section>
-
-    <section id="routeSection" class="section hidden">
-      <button id="backBtn" class="back-btn">‹ 返回</button>
-      <div id="routeHeader"></div>
-      <div id="directionTabs" class="direction-tabs"></div>
-      <div id="stops"></div>
-    </section>
+    <section id="resultsSection" class="section hidden"><h2>搜尋結果</h2><div id="results"></div></section>
+    <section id="routeSection" class="section hidden"><button id="backBtn" class="back-btn">‹ 返回</button><div id="routeHeader"></div><div id="directionTabs" class="direction-tabs"></div><div id="stops"></div></section>
 
     <section class="section journey-placeholder" aria-labelledby="journeyTitle">
       <div class="section-head"><h2 id="journeyTitle">點到點</h2><span class="coming">架構預留</span></div>
-      <p>日後支援九巴／龍運、城巴、綠色專線小巴及港鐵；搵站範圍 200–300m，與上面 100m 即將到站分開計算。</p>
+      <p>已預留九巴／龍運、城巴、綠色專線小巴及港鐵資料層；搵站範圍 200–300m，與上面 100m 即將到站分開計算。</p>
       <div class="mode-row" aria-label="規劃模式"><span>⚡ 最快</span><span>🚶 最少步行</span><span>🔁 最少轉車</span><span>💰 最平</span></div>
     </section>
-
-    <footer>實時資料由運輸署、九巴／龍運及城巴開放數據提供。到站為非官方應用，資料只供參考。</footer>
+    <footer>實時資料由運輸署、九巴／龍運、城巴及綠色專線小巴開放數據提供。到站為非官方應用，資料只供參考。</footer>
   </main>
-
   <script src="app.js"></script>
 </body>
 </html>
