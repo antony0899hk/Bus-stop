@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>到站 Watch</title>
+  <link rel="stylesheet" href="watch.css" />
+</head>
+<body>
+  <main class="watch-app">
+    <header class="watch-head">
+      <div>
+        <h1>到站 Watch</h1>
+        <p>收藏優先 · ETA 優先</p>
+      </div>
+      <button id="refreshBtn" class="icon-btn" aria-label="重新整理">↻</button>
+    </header>
+
+    <section id="favSection" class="watch-section">
+      <div class="section-title">⭐ 常搭</div>
+      <div id="favList" class="stack"><div class="muted">讀取收藏中…</div></div>
+    </section>
+
+    <button id="openSearch" class="search-launch">🔎 搜尋路線</button>
+
+    <section id="searchSection" class="watch-section hidden">
+      <div class="search-row">
+        <input id="searchInput" inputmode="text" autocomplete="off" placeholder="270A / 978 / 55K" />
+        <button id="doSearch">搜尋</button>
+      </div>
+      <div id="searchResults" class="stack"></div>
+    </section>
+
+    <section id="detailSection" class="watch-section hidden">
+      <button id="backBtn" class="back-btn">‹ 返回</button>
+      <div id="detail"></div>
+    </section>
+
+    <footer>非官方應用 · ETA 只供參考</footer>
+  </main>
+  <script src="watch.js"></script>
+</body>
+</html>
