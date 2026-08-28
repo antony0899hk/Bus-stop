@@ -1,5 +1,5 @@
-const CACHE = "daozhan-v3.0.0";
-const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon.svg"];
+const CACHE = "daozhan-v3.1.0";
+const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./fare.js", "./manifest.json", "./icon.svg"];
 const DATA = ["./ctb-stops.json", "./kmb-stops.json", "./ctb-routes.json", "./kmb-routes.json", ...Array.from({length:8},(_,i)=>`./gmb-routes-${i}.json`), ...Array.from({length:16},(_,i)=>`./gmb-stops-${i}.json`)];
 self.addEventListener("install", event => {
   self.skipWaiting();
