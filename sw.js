@@ -1,5 +1,5 @@
-const CACHE = "daozhan-v3.1.0";
-const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./fare.js", "./manifest.json", "./icon.svg"];
+const CACHE = "daozhan-v3.2.0";
+const CORE = ["./", "./index.html", "./styles.css", "./app.js", "./fare.js", "./watch-sync.js", "./manifest.json", "./icon.svg", "./watch/", "./watch/index.html", "./watch/watch.css", "./watch/watch.js", "./watch/sync.js"];
 const DATA = ["./ctb-stops.json", "./kmb-stops.json", "./ctb-routes.json", "./kmb-routes.json", ...Array.from({length:8},(_,i)=>`./gmb-routes-${i}.json`), ...Array.from({length:16},(_,i)=>`./gmb-stops-${i}.json`)];
 self.addEventListener("install", event => {
   self.skipWaiting();
