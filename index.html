@@ -52,14 +52,14 @@
         <div class="journey-swap">↓</div>
         <div class="journey-field"><label for="journeyTo">終點</label><input id="journeyTo" autocomplete="off" placeholder="例如 尖沙咀、旺角" /></div>
       </div>
-      <button id="journeySearchBtn" class="journey-search-btn" type="button">搜尋路線</button>
+      <button id="journeySearchBtn" class="journey-search-btn" type="button">搜尋而家有車嘅路線</button>
       <div class="journey-mode-row" aria-label="點到點排序模式">
         <button class="active" data-journey-mode="fastest">⚡ 最快</button>
         <button data-journey-mode="walking">🚶 最少步行</button>
         <button data-journey-mode="transfers">🔁 最少轉車</button>
         <button data-journey-mode="cheapest">💰 最平</button>
       </div>
-      <div id="journeyStatus" class="journey-status">支援九巴／龍運、城巴及綠色專線小巴；直達優先，並嘗試一次轉車方案。</div>
+      <div id="journeyStatus" class="journey-status">優先只顯示目前有實時 ETA、確認仍在服務嘅路線。</div>
       <div id="journeyResults" class="journey-results"></div>
     </section>
 
@@ -69,6 +69,91 @@
   <script src="fare.js"></script>
   <script src="watch-sync.js"></script>
   <script src="journey.js"></script>
-  <script src="journey-ctb-fix.js"></script>
+  <script>
+    async function journeyLegEta(leg, stopId) {
+      return journeyEta({
+        kind: "direct",
+        operator: leg.operator,
+        route: leg.route,
+        bound: leg.bound,
+        serviceType: leg.serviceType || "1",
+        originStop: { id: String(stopId) }
+      });
+    }
+
+    async function checkJourneyRunning(result) {
+      if (result.kind === "direct") {
+        result.eta = await journeyEta(result);
+        return Boolean(result.eta);
+      }
+      const [firstEta, secondEta] = await Promise.all([
+        journeyLegEta(result.first, result.first.originStop.id),
+        journeyLegEta(result.second, result.transferStopId)
+      ]);
+      result.firstEta = firstEta;
+      result.secondEta = secondEta;
+      result.eta = firstEta;
+      return Boolean(firstEta && secondEta);
+    }
+
+    async function runJourneySearch() {
+      const button = j$("#journeySearchBtn");
+      const status = j$("#journeyStatus");
+      const originValue = j$("#journeyFrom").value;
+      const destinationValue = j$("#journeyTo").value;
+      const origin = resolvePlace(originValue, journeyState.originLocation);
+      const destination = resolvePlace(destinationValue);
+      if (!origin.length || !destination.length) {
+        status.textContent = "搵唔到起點或終點車站，請輸入較短地名／站名。";
+        return;
+      }
+      button.disabled = true;
+      status.textContent = "正在搵而家仍有車嘅路線…";
+      j$("#journeyResults").innerHTML = '<div class="loading">搜尋實時班次中…</div>';
+      try {
+        await ensureJourneyIndexes();
+        const direct = [
+          ...directFromIndex(journeyState.kmbIndex, origin.filter(x=>x.operator==="KMB"), destination.filter(x=>x.operator==="KMB")),
+          ...directFromIndex(journeyState.ctbIndex, origin.filter(x=>x.operator==="CTB"), destination.filter(x=>x.operator==="CTB")),
+          ...(await gmbDirect(origin, destination))
+        ];
+        const transfers = [
+          ...oneTransferFromIndex(journeyState.kmbIndex, origin, destination),
+          ...oneTransferFromIndex(journeyState.ctbIndex, origin, destination)
+        ];
+        const uniq = new Map();
+        [...direct, ...transfers].forEach(r => {
+          const key = r.kind === "direct" ? `${r.operator}|${r.route}|${r.originStop.id}|${r.destinationStop?.id}` : `${r.first.operator}|${r.first.route}>${r.second.route}|${r.transferStopId}`;
+          if (!uniq.has(key)) uniq.set(key,r);
+        });
+
+        // Keep the first live check small so mobile search stays quick.
+        const candidates = [...uniq.values()]
+          .sort((a,b) => a.transferCount - b.transferCount || a.stopCount - b.stopCount || a.walkMeters - b.walkMeters)
+          .slice(0,24);
+        const checked = await Promise.all(candidates.map(async r => ({ r, running: await checkJourneyRunning(r) })));
+        journeyState.results = checked.filter(x => x.running).map(x => x.r).slice(0,18);
+
+        if (!journeyState.results.length) {
+          status.textContent = "暫時搵唔到有實時 ETA 嘅可用路線；已收車／未有班次嘅路線唔會顯示。";
+          renderJourneyResults();
+          return;
+        }
+
+        status.textContent = `而家有 ${journeyState.results.length} 個可搭方案，只顯示有實時 ETA 嘅路線。`;
+        renderJourneyResults();
+
+        // Fare is secondary: load it after ETA results are already visible.
+        Promise.all(journeyState.results.filter(r=>r.kind==="direct").slice(0,12).map(async r => {
+          r.fare = await journeyFare(r);
+        })).then(() => renderJourneyResults()).catch(() => {});
+      } catch (e) {
+        status.textContent = `點對點暫時未能搜尋：${e.message}`;
+        j$("#journeyResults").innerHTML = '<div class="error">其他 ETA 功能仍可正常使用。</div>';
+      } finally {
+        button.disabled = false;
+      }
+    }
+  </script>
 </body>
 </html>
