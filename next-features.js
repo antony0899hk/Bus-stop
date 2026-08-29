@@ -77,8 +77,25 @@
   async function runQuick(item) {
     if (!item.value) return openEditor(item.id);
     const status=q("#journeyStatus"), from=q("#journeyFrom"), to=q("#journeyTo");
-    try { status.textContent=`正在定位，準備前往 ${item.label}…`; const loc=await locate(); if(typeof journeyState!=="undefined") journeyState.originLocation=loc; from.value="我的位置"; to.value=item.value; remember(item.value); if(typeof runJourneySearch==="function") await runJourneySearch(); else q("#journeySearchBtn")?.click(); }
-    catch { status.textContent="未能取得目前位置，請檢查 Safari 定位權限。"; }
+    try {
+      status.textContent=`正在定位，準備前往 ${item.label}…`;
+      const loc=await locate();
+      if(typeof journeyState!=="undefined") journeyState.originLocation=loc;
+      from.value="我的位置";
+      to.value=item.value;
+      from.dispatchEvent(new Event("input",{bubbles:true}));
+      to.dispatchEvent(new Event("input",{bubbles:true}));
+      remember(item.value);
+      status.textContent=`正在搜尋：我的位置 → ${item.label}…`;
+      if(typeof runJourneySearch==="function") await runJourneySearch();
+      else {
+        const searchBtn=q("#journeySearchBtn");
+        if (!searchBtn) throw new Error("search unavailable");
+        searchBtn.click();
+      }
+      requestAnimationFrame(()=>q("#journeyResults")?.scrollIntoView({behavior:"smooth",block:"nearest"}));
+    }
+    catch { status.textContent="未能取得目前位置或搜尋路線，請檢查 Safari 定位權限後再試。"; }
   }
 
   document.addEventListener("click", e=>{
