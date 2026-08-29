@@ -20,10 +20,27 @@
   function installUI() {
     const planner = q(".journey-planner");
     if (!planner || q("#journeyQuickPlaces")) return;
-    const block = document.createElement("div");
-    block.className = "journey-quick-block";
-    block.innerHTML = `<div class="journey-quick-head"><strong>快捷目的地</strong><span>一撳由目前位置出發</span></div><div id="journeyQuickPlaces" class="journey-quick-row"></div><div id="journeyRecentPlaces" class="journey-recent-row"></div>`;
-    planner.querySelector(".section-head")?.insertAdjacentElement("afterend", block);
+    const head = planner.querySelector(".section-head");
+    if (!head) return;
+
+    const h2 = head.querySelector("h2");
+    const beta = head.querySelector(".coming");
+    const titleGroup = document.createElement("div");
+    titleGroup.className = "journey-title-group";
+    if (h2) titleGroup.appendChild(h2);
+    if (beta) titleGroup.appendChild(beta);
+    head.appendChild(titleGroup);
+
+    const quick = document.createElement("div");
+    quick.id = "journeyQuickPlaces";
+    quick.className = "journey-quick-row journey-quick-inline";
+    head.appendChild(quick);
+
+    const recentBox = document.createElement("div");
+    recentBox.id = "journeyRecentPlaces";
+    recentBox.className = "journey-recent-row";
+    head.insertAdjacentElement("afterend", recentBox);
+
     const swap = q(".journey-swap");
     if (swap) swap.innerHTML = '<button id="journeySwapBtn" type="button" aria-label="交換起點終點">⇅</button>';
     renderPlaces(); renderRecent();
@@ -31,11 +48,13 @@
 
   function renderPlaces() {
     const box = q("#journeyQuickPlaces"); if (!box) return;
-    box.innerHTML = places().map(p => `<button class="journey-quick-btn" type="button" data-quick="${esc(p.id)}"><span>${p.icon||"📍"}</span><strong>${esc(p.label)}</strong></button>`).join("") + '<button class="journey-quick-btn add" type="button" data-add-quick="1"><span>＋</span><strong>新增</strong></button>';
+    box.innerHTML = places().slice(0,2).map(p => `<button class="journey-quick-btn" type="button" data-quick="${esc(p.id)}" title="${esc(p.label)}"><span>${p.icon||"📍"}</span><strong>${esc(p.label)}</strong></button>`).join("") + '<button class="journey-quick-btn add" type="button" data-add-quick="1" title="新增快捷目的地"><span>＋</span><strong>新增</strong></button>';
   }
   function renderRecent() {
     const box = q("#journeyRecentPlaces"); if (!box) return;
-    const a = recent(); box.innerHTML = a.length ? '<span class="recent-label">最近：</span>' + a.map(v=>`<button type="button" class="journey-recent-btn" data-recent="${esc(v)}">${esc(v)}</button>`).join("") : "";
+    const a = recent();
+    box.classList.toggle("hidden", !a.length);
+    box.innerHTML = a.length ? '<span class="recent-label">最近：</span>' + a.map(v=>`<button type="button" class="journey-recent-btn" data-recent="${esc(v)}">${esc(v)}</button>`).join("") : "";
   }
 
   function locate() { return new Promise((resolve,reject)=>navigator.geolocation ? navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),reject,{enableHighAccuracy:true,timeout:12000,maximumAge:30000}) : reject(new Error("不支援定位"))); }
