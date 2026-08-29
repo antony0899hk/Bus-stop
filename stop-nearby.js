@@ -1,155 +1,74 @@
 (() => {
-  const STOP_RADIUS_METERS = 100;
-  let catalogsPromise = null;
+  "use strict";
+  const RADIUS = 100;
+  const $ = (s,r=document) => r.querySelector(s);
+  const $$ = (s,r=document) => [...r.querySelectorAll(s)];
 
-  function distanceMeters(aLat, aLon, bLat, bLon) {
-    const R = 6371000;
-    const toRad = x => x * Math.PI / 180;
-    const p1 = toRad(aLat), p2 = toRad(bLat);
-    const dp = toRad(bLat - aLat), dl = toRad(bLon - aLon);
-    const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-  }
+  function coords(stop){const lat=Number(stop?.lat??stop?.latitude),lon=Number(stop?.long??stop?.lng??stop?.longitude);return Number.isFinite(lat)&&Number.isFinite(lon)?{lat,lon}:null;}
+  function maps(){return typeof state==="undefined"?[]:[["KMB",state.kmbStops],["CTB",state.ctbStops],["GMB",state.gmbStops]];}
+  function stopObj(op,id){return maps().find(x=>x[0]===op)?.[1]?.get(String(id));}
+  function opFromRoute(){return state?.selectedRoute?.operator || null;}
+  function nameOf(stop,id){return stop?.name_tc||stop?.name||stop?.stop_name_tc||String(id||"");}
+  function badge(op){return typeof operatorBadge==="function"?operatorBadge(op):op;}
+  function etaText(iso){return typeof etaLabel==="function"?etaLabel(iso):"";}
+  function safe(v){return typeof escapeHtml==="function"?escapeHtml(v):String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-  async function getLocalJSON(path) {
-    const res = await fetch(path, { cache: "force-cache", headers: { Accept: "application/json" } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  }
-
-  function toMap(data) {
-    const map = new Map();
-    for (const s of data || []) {
-      const id = String(s.stop ?? s.stop_id ?? s.id ?? "");
-      if (id) map.set(id, s);
+  function nearbyStops(origin){
+    const out=[];
+    for(const [op,map] of maps()){
+      const a=[];
+      for(const [id,s] of map){const c=coords(s);if(!c)continue;const d=distanceMeters(origin.lat,origin.lon,c.lat,c.lon);if(Number.isFinite(d)&&d<=RADIUS)a.push({operator:op,stop:String(id),stopObj:s,distance:d});}
+      a.sort((x,y)=>x.distance-y.distance);out.push(...a.slice(0,8));
     }
-    return map;
+    return out;
   }
 
-  async function loadCatalogs() {
-    if (catalogsPromise) return catalogsPromise;
-    catalogsPromise = Promise.all([
-      getLocalJSON("./kmb-stops.json"),
-      getLocalJSON("./ctb-stops.json"),
-      getLocalJSON("./gmb-stops.json")
-    ]).then(([kmb, ctb, gmb]) => ({
-      KMB: toMap(kmb.data || kmb),
-      CTB: toMap(ctb.data || ctb),
-      GMB: toMap(gmb.data || gmb)
-    })).catch(error => {
-      catalogsPromise = null;
-      throw error;
-    });
-    return catalogsPromise;
-  }
-
-  function currentOperator() {
-    const badge = document.querySelector("#routeHeader .badge");
-    if (!badge) return null;
-    if (badge.classList.contains("ctb")) return "CTB";
-    if (badge.classList.contains("gmb")) return "GMB";
-    return "KMB";
-  }
-
-  function coords(stop) {
-    const lat = Number(stop?.lat ?? stop?.latitude);
-    const lon = Number(stop?.long ?? stop?.lng ?? stop?.longitude);
-    return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
-  }
-
-  function decorateStopNames(root = document) {
-    root.querySelectorAll?.("#stops .stop-name").forEach(el => {
-      if (el.dataset.stopNearbyReady) return;
-      el.dataset.stopNearbyReady = "1";
-      el.setAttribute("role", "button");
-      el.setAttribute("tabindex", "0");
-      el.setAttribute("aria-label", `${el.textContent.trim()}：查看此站附近路線`);
-      el.title = "查看此站附近路線";
-      el.classList.add("stop-nearby-link");
-    });
-  }
-
-  async function openStopNearby(nameEl) {
-    const row = nameEl.closest(".stop-row");
-    const stopId = row?.dataset.stopId;
-    const operator = currentOperator();
-    if (!stopId || !operator) return;
-
-    const status = document.querySelector("#nearbyStatus");
-    const stopName = nameEl.textContent.trim() || "此站";
-    if (status) status.textContent = `正在搜尋「${stopName}」100m 內路線…`;
-    nameEl.setAttribute("aria-busy", "true");
-
-    try {
-      const catalogs = await loadCatalogs();
-      const originStop = catalogs[operator].get(String(stopId));
-      const origin = coords(originStop);
-      if (!origin) throw new Error("站點座標暫時不可用");
-
-      const nearbyStops = [];
-      for (const op of ["KMB", "CTB", "GMB"]) {
-        const candidates = [];
-        for (const [id, stopObj] of catalogs[op]) {
-          const c = coords(stopObj);
-          if (!c) continue;
-          const distance = distanceMeters(origin.lat, origin.lon, c.lat, c.lon);
-          if (distance <= STOP_RADIUS_METERS) {
-            candidates.push({ operator: op, stop: String(id), stopObj, distance });
-          }
-        }
-        candidates.sort((a, b) => a.distance - b.distance);
-        nearbyStops.push(...candidates.slice(0, 15));
+  async function etaRows(s){
+    const rows=[];
+    try{
+      if(s.operator==="KMB"){
+        const j=await getJSON(`${KMB_API}/stop-eta/${encodeURIComponent(s.stop)}`,{ttl:20000,retries:0});
+        for(const x of (j.data||[]).slice(0,35)) if(validFutureEta(x.eta)) rows.push({operator:"KMB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:s.distance,stopId:s.stop,stopName:nameOf(s.stopObj,s.stop)});
+      }else if(s.operator==="CTB"){
+        let j;
+        try{j=await getJSON(`https://rt.data.gov.hk/v1/transport/batch/stop-eta/CTB/${encodeURIComponent(s.stop)}`,{ttl:20000,retries:0});}
+        catch{j={data:[]};}
+        for(const x of (j.data||[]).slice(0,40)) if(validFutureEta(x.eta)) rows.push({operator:"CTB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:s.distance,stopId:s.stop,stopName:nameOf(s.stopObj,s.stop)});
+      }else{
+        const j=await getJSON(`${GMB_API}/eta/stop/${encodeURIComponent(s.stop)}`,{ttl:20000,retries:0});
+        for(const occ of j.data||[]){if(occ.enabled===false)continue;const meta=state.gmbRoutes.find(r=>String(r.routeId)===String(occ.route_id)&&Number(r.routeSeq)===Number(occ.route_seq));for(const e of occ.eta||[]) if(validFutureEta(e.timestamp)) rows.push({operator:"GMB",route:meta?.route||"小巴",dest:meta?.dest||"",eta:e.timestamp,remark:e.remarks_tc||"",distance:s.distance,stopId:s.stop,stopName:nameOf(s.stopObj,s.stop)});}
       }
-
-      if (typeof loadNearbyEtas !== "function") throw new Error("附近 ETA 功能未載入");
-      await loadNearbyEtas(nearbyStops);
-      if (status) status.textContent = `已顯示「${stopName}」100m 內即將到站路線。`;
-      document.querySelector("#nearbySection")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (error) {
-      if (status) status.textContent = `未能載入「${stopName}」附近路線：${error.message}`;
-    } finally {
-      nameEl.removeAttribute("aria-busy");
-    }
+    }catch{}
+    return rows;
   }
 
-  document.addEventListener("click", event => {
-    const nameEl = event.target.closest?.("#stops .stop-name");
-    if (!nameEl) return;
-    event.preventDefault();
-    openStopNearby(nameEl);
+  function closeSheet(){$(".stop-sheet-backdrop")?.remove();}
+  function shell(title){closeSheet();const el=document.createElement("div");el.className="stop-sheet-backdrop";el.innerHTML=`<section class="stop-sheet" role="dialog" aria-modal="true"><div class="stop-sheet-handle"></div><div class="stop-sheet-head"><div><strong>${safe(title)}</strong><div class="stop-sheet-meta">100m 內巴士／小巴即將到站</div></div><button class="stop-sheet-close" aria-label="關閉">×</button></div><div class="stop-sheet-list"><div class="loading">正在搜尋附近班次…</div></div></section>`;document.body.appendChild(el);el.addEventListener("click",e=>{if(e.target===el||e.target.closest(".stop-sheet-close"))closeSheet();});return el;}
+
+  async function openByStop(op,id,title=""){
+    const s=stopObj(op,id),c=coords(s);if(!c)return;
+    const sheet=shell(title||nameOf(s,id));
+    const stops=nearbyStops(c), all=[];
+    await parallel(stops,4,async x=>all.push(...await etaRows(x)));
+    const seen=new Set();
+    const list=all.sort((a,b)=>new Date(a.eta)-new Date(b.eta)).filter(x=>{const k=[x.operator,x.route,x.stopId,x.eta].join("|");if(seen.has(k))return false;seen.add(k);return true;}).slice(0,24);
+    const box=$(".stop-sheet-list",sheet);if(!box)return;
+    box.innerHTML=list.length?list.map(x=>`<button class="stop-sheet-row" type="button" data-open-route="${safe(x.operator)}|${safe(x.route)}"><span>${badge(x.operator)}</span><span><span class="stop-sheet-route">${safe(x.route)}</span><span class="stop-sheet-meta">${safe(x.stopName)} → ${safe(x.dest||"目的地")} · ${Math.round(x.distance)}m</span></span><span class="stop-sheet-eta">${safe(etaText(x.eta))}</span></button>`).join(""):'<div class="empty">附近暫時未有可顯示 ETA。</div>';
+  }
+
+  function decorate(){
+    $$("#stops .stop-name").forEach(el=>{if(el.dataset.stopNearbyReady)return;el.dataset.stopNearbyReady="1";el.classList.add("stop-nearby-link");el.setAttribute("role","button");el.setAttribute("tabindex","0");});
+    $$("#nearbyResults .near-meta").forEach(el=>{el.classList.add("stop-nearby-link");el.setAttribute("role","button");el.setAttribute("tabindex","0");});
+    $$("#favorites .favorite-stop strong").forEach(el=>{el.classList.add("stop-nearby-link");el.setAttribute("role","button");el.setAttribute("tabindex","0");});
+  }
+
+  document.addEventListener("click",e=>{
+    const routeBtn=e.target.closest("[data-open-route]");if(routeBtn){const [op,route]=routeBtn.dataset.openRoute.split("|");const r=normalizedRoutes().find(x=>x.operator===op&&String(x.route)===route);if(r){closeSheet();openRoute(r);}return;}
+    const routeStop=e.target.closest("#stops .stop-name");if(routeStop){e.preventDefault();const row=routeStop.closest(".stop-row");const op=opFromRoute();if(op&&row?.dataset.stopId)openByStop(op,row.dataset.stopId,routeStop.textContent.trim());return;}
+    const near=e.target.closest("#nearbyResults .near-meta");if(near){const card=near.closest(".near-card"),route=card?.querySelector(".near-route")?.textContent?.trim(),name=near.textContent.split("·")[0].trim();const x=state.nearby.find(v=>String(v.route)===route&&v.stopName===name);if(x)openByStop(x.operator,x.stopId,name);return;}
+    const fav=e.target.closest("#favorites .favorite-stop strong");if(fav){const card=fav.closest(".favorite-card"),idx=$$("#favorites .favorite-card").indexOf(card),f=state.favorites[idx];if(f)openByStop(f.operator,f.stopId,f.stopName);}
   });
-
-  document.addEventListener("keydown", event => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    const nameEl = event.target.closest?.("#stops .stop-name");
-    if (!nameEl) return;
-    event.preventDefault();
-    openStopNearby(nameEl);
-  });
-
-  const observer = new MutationObserver(() => decorateStopNames());
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  decorateStopNames();
-
-  const style = document.createElement("style");
-  style.textContent = `
-    #stops .stop-nearby-link {
-      cursor: pointer;
-      text-decoration: underline;
-      text-decoration-style: dotted;
-      text-underline-offset: 3px;
-      touch-action: manipulation;
-    }
-    #stops .stop-nearby-link::after {
-      content: "  ›";
-      opacity: .5;
-      font-weight: 700;
-    }
-    #stops .stop-nearby-link:focus-visible {
-      outline: 2px solid currentColor;
-      outline-offset: 3px;
-      border-radius: 4px;
-    }
-  `;
-  document.head.appendChild(style);
+  document.addEventListener("keydown",e=>{if(!["Enter"," "].includes(e.key))return;const el=e.target.closest(".stop-nearby-link");if(el){e.preventDefault();el.click();}});
+  const mo=new MutationObserver(decorate);mo.observe(document.documentElement,{subtree:true,childList:true});decorate();
+  window.openStopNearbySheet=openByStop;
 })();
