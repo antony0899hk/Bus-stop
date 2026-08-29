@@ -7,6 +7,7 @@
   <title>到站</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="journey.css" />
 </head>
 <body>
   <main class="app">
@@ -44,15 +45,29 @@
     <section id="resultsSection" class="section hidden"><h2>搜尋結果</h2><div id="results"></div></section>
     <section id="routeSection" class="section hidden"><button id="backBtn" class="back-btn">‹ 返回</button><div id="routeHeader"></div><div id="directionTabs" class="direction-tabs"></div><div id="stops"></div></section>
 
-    <section class="section journey-placeholder" aria-labelledby="journeyTitle">
-      <div class="section-head"><h2 id="journeyTitle">點到點</h2><span class="coming">架構預留</span></div>
-      <p>已預留九巴／龍運、城巴、綠色專線小巴及港鐵資料層；搵站範圍 200–300m，與上面 100m 即將到站分開計算。</p>
-      <div class="mode-row" aria-label="規劃模式"><span>⚡ 最快</span><span>🚶 最少步行</span><span>🔁 最少轉車</span><span>💰 最平</span></div>
+    <section class="journey-planner" aria-labelledby="journeyTitle">
+      <div class="section-head"><h2 id="journeyTitle">點到點</h2><span class="coming">Beta</span></div>
+      <div class="journey-inputs">
+        <div class="journey-field"><label for="journeyFrom">起點</label><div class="journey-origin-row"><input id="journeyFrom" autocomplete="off" placeholder="例如 上水、國泰城" /><button id="journeyUseLocation" type="button">📍 我的位置</button></div></div>
+        <div class="journey-swap">↓</div>
+        <div class="journey-field"><label for="journeyTo">終點</label><input id="journeyTo" autocomplete="off" placeholder="例如 尖沙咀、旺角" /></div>
+      </div>
+      <button id="journeySearchBtn" class="journey-search-btn" type="button">搜尋路線</button>
+      <div class="journey-mode-row" aria-label="點到點排序模式">
+        <button class="active" data-journey-mode="fastest">⚡ 最快</button>
+        <button data-journey-mode="walking">🚶 最少步行</button>
+        <button data-journey-mode="transfers">🔁 最少轉車</button>
+        <button data-journey-mode="cheapest">💰 最平</button>
+      </div>
+      <div id="journeyStatus" class="journey-status">支援九巴／龍運、城巴及綠色專線小巴；直達優先，並嘗試一次轉車方案。</div>
+      <div id="journeyResults" class="journey-results"></div>
     </section>
+
     <footer>實時資料由運輸署、九巴／龍運、城巴及綠色專線小巴開放數據提供。到站為非官方應用，資料只供參考。</footer>
   </main>
   <script src="app.js"></script>
   <script src="fare.js"></script>
   <script src="watch-sync.js"></script>
+  <script src="journey.js"></script>
 </body>
 </html>
