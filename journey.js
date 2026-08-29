@@ -1,5 +1,8 @@
 const JOURNEY_KMB_ROUTE_STOP = "https://data.etabus.gov.hk/v1/transport/kmb/route-stop";
-const JOURNEY_CTB_ROUTE_STOP = "https://rt.data.gov.hk/v1/transport/citybus-nwfb/route-stop/ctb";
+const JOURNEY_CTB_BULK_SOURCES = [
+  "https://data.hkbus.app/routeFareList.min.json",
+  "https://hkbus.github.io/hk-bus-crawling/routeFareList.min.json"
+];
 const JOURNEY_RADIUS = 300;
 const JOURNEY_TRANSFER_LIMIT = 12;
 
@@ -86,17 +89,49 @@ function buildRouteIndex(rows, operator) {
   return { byRoute, byStop };
 }
 
+async function buildCtbJourneyIndex() {
+  let lastError = null;
+  for (const url of JOURNEY_CTB_BULK_SOURCES) {
+    try {
+      const db = await getJSON(url, { ttl:12 * 60 * 60 * 1000, retries:0 });
+      const routeList = db?.routeList || {};
+      const rows = [];
+      for (const entry of Object.values(routeList)) {
+        const companies = Array.isArray(entry?.co) ? entry.co.map(x => String(x).toLowerCase()) : [];
+        if (!companies.includes("ctb")) continue;
+        const route = String(entry?.route || "");
+        const bound = String(entry?.bound?.ctb || "").toUpperCase();
+        const stops = entry?.stops?.ctb;
+        if (!route || !["O", "I"].includes(bound) || !Array.isArray(stops) || !stops.length) continue;
+        const serviceType = String(entry?.serviceType || 1);
+        stops.forEach((stop, index) => {
+          if (stop == null || stop === "") return;
+          rows.push({ route, stop:String(stop), bound, service_type:serviceType, seq:index + 1 });
+        });
+      }
+      if (!rows.length) throw new Error("Citybus route graph is empty");
+      return buildRouteIndex(rows, "CTB");
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("Citybus route graph unavailable");
+}
+
 async function ensureJourneyIndexes() {
   if (journeyState.kmbIndex && journeyState.ctbIndex) return;
   if (journeyState.indexPromise) return journeyState.indexPromise;
   journeyState.indexPromise = (async () => {
-    const [kmb, ctb] = await Promise.allSettled([
-      getJSON(JOURNEY_KMB_ROUTE_STOP, { ttl: 12 * 60 * 60 * 1000, retries:1 }),
-      getJSON(JOURNEY_CTB_ROUTE_STOP, { ttl: 12 * 60 * 60 * 1000, retries:1 })
-    ]);
-    if (kmb.status === "fulfilled") journeyState.kmbIndex = buildRouteIndex(kmb.value.data || [], "KMB");
-    if (ctb.status === "fulfilled") journeyState.ctbIndex = buildRouteIndex(ctb.value.data || [], "CTB");
-    if (!journeyState.kmbIndex && !journeyState.ctbIndex) throw new Error("暫時未能建立路線索引");
+    const jobs = [];
+    if (!journeyState.kmbIndex) {
+      jobs.push(getJSON(JOURNEY_KMB_ROUTE_STOP, { ttl:12 * 60 * 60 * 1000, retries:1 })
+        .then(j => { journeyState.kmbIndex = buildRouteIndex(j.data || [], "KMB"); }));
+    }
+    if (!journeyState.ctbIndex) {
+      jobs.push(buildCtbJourneyIndex().then(index => { journeyState.ctbIndex = index; }));
+    }
+    await Promise.allSettled(jobs);
+    if (!journeyState.kmbIndex && !journeyState.ctbIndex) throw new Error("暫時未能建立巴士路線索引");
   })().finally(() => { journeyState.indexPromise = null; });
   return journeyState.indexPromise;
 }
@@ -112,7 +147,8 @@ function routeMetaFromKey(key) {
 
 function directFromIndex(index, originStops, destinationStops) {
   if (!index) return [];
-  const destinationIds = new Set(destinationStops.filter(s => s.operator === [...index.byRoute.values()][0]?.operator).map(s => s.id));
+  const operator = [...index.byRoute.values()][0]?.operator;
+  const destinationIds = new Set(destinationStops.filter(s => s.operator === operator).map(s => s.id));
   const results = [];
   for (const origin of originStops) {
     if (!index.byStop.has(origin.id)) continue;
@@ -332,4 +368,8 @@ function initJourneyPlanner() {
   }));
 }
 
-window.addEventListener("load", initJourneyPlanner);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initJourneyPlanner, { once:true });
+} else {
+  initJourneyPlanner();
+}
