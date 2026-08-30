@@ -13,8 +13,8 @@
 <body>
   <main class="app">
     <header class="topbar">
-      <div><h1>到站</h1><p>九巴／龍運・城巴・小巴實時 ETA</p></div>
-      <div class="operator-legend"><span class="badge kmb">九巴</span><span class="badge ctb">城巴</span><span class="badge gmb">小巴</span></div>
+      <div><h1>到站</h1><p>九巴／龍運・城巴・小巴・嶼巴・港鐵</p></div>
+      <div class="operator-legend"><span class="badge kmb">九巴</span><span class="badge ctb">城巴</span><span class="badge gmb">小巴</span><span class="badge nlb">嶼巴</span><span class="badge mtr">MTR</span></div>
     </header>
 
     <section id="traffic-warning" class="warning hidden"><div class="warning-title">⚠️ 交通提示</div><div id="warning-text"></div><div id="warning-meta" class="warning-meta"></div></section>
@@ -28,7 +28,7 @@
     <section id="nearbySection" class="section hidden">
       <div class="section-head"><h2>附近最快到站</h2><span id="nearbyCount" class="small-muted"></span></div>
       <div class="filter-row" aria-label="附近班次營辦商篩選">
-        <button class="filter active" data-near-filter="all">全部</button><button class="filter kmb-filter" data-near-filter="KMB">九巴</button><button class="filter ctb-filter" data-near-filter="CTB">城巴</button><button class="filter gmb-filter" data-near-filter="GMB">小巴</button><button class="filter mtr-filter" data-near-filter="MTR">MTR</button>
+        <button class="filter active" data-near-filter="all">全部</button><button class="filter kmb-filter" data-near-filter="KMB">九巴</button><button class="filter ctb-filter" data-near-filter="CTB">城巴</button><button class="filter gmb-filter" data-near-filter="GMB">小巴</button><button class="filter nlb-filter" data-near-filter="NLB">嶼巴</button><button class="filter mtr-filter" data-near-filter="MTR">MTR</button>
       </div>
       <button id="nearbyCollapseTop" class="more-btn compact hidden">收起 ↑</button>
       <div id="nearbyResults"></div><button id="nearbyMore" class="more-btn hidden">顯示更多 ↓</button>
@@ -36,9 +36,9 @@
 
     <section class="search-panel">
       <label for="routeSearch">搜尋路線</label>
-      <div class="search-row"><input id="routeSearch" inputmode="text" autocomplete="off" placeholder="例如 270A、978、55K" /><button id="searchBtn">搜尋</button></div>
+      <div class="search-row"><input id="routeSearch" inputmode="text" autocomplete="off" placeholder="例如 270A、978、55K、23" /><button id="searchBtn">搜尋</button></div>
       <div class="filter-row search-filters" aria-label="搜尋營辦商篩選">
-        <button class="filter active" data-search-filter="all">全部</button><button class="filter kmb-filter" data-search-filter="KMB">九巴</button><button class="filter ctb-filter" data-search-filter="CTB">城巴</button><button class="filter gmb-filter" data-search-filter="GMB">小巴</button><button class="filter mtr-filter" data-search-filter="MTR">MTR</button>
+        <button class="filter active" data-search-filter="all">全部</button><button class="filter kmb-filter" data-search-filter="KMB">九巴</button><button class="filter ctb-filter" data-search-filter="CTB">城巴</button><button class="filter gmb-filter" data-search-filter="GMB">小巴</button><button class="filter nlb-filter" data-search-filter="NLB">嶼巴</button><button class="filter mtr-filter" data-search-filter="MTR">MTR</button>
       </div>
       <div id="status" class="status">正在載入路線資料…</div>
     </section>
@@ -51,7 +51,7 @@
       <div class="journey-inputs">
         <div class="journey-field"><label for="journeyFrom">起點</label><div class="journey-origin-row"><input id="journeyFrom" autocomplete="off" placeholder="例如 上水、國泰城" /><button id="journeyUseLocation" type="button">📍 我的位置</button></div></div>
         <div class="journey-swap">↓</div>
-        <div class="journey-field"><label for="journeyTo">終點</label><input id="journeyTo" autocomplete="off" placeholder="例如 尖沙咀、旺角" /></div>
+        <div class="journey-field"><label for="journeyTo">終點</label><input id="journeyTo" autocomplete="off" placeholder="例如 尖沙咀、旺角、東涌" /></div>
       </div>
       <button id="journeySearchBtn" class="journey-search-btn" type="button">搜尋路線</button>
       <div class="journey-mode-row" aria-label="點到點排序模式">
@@ -60,11 +60,11 @@
         <button data-journey-mode="transfers">🔁 最少轉車</button>
         <button data-journey-mode="cheapest">💰 最平</button>
       </div>
-      <div id="journeyStatus" class="journey-status">支援九巴／龍運、城巴及綠色專線小巴；直達優先，並嘗試一次轉車方案。</div>
+      <div id="journeyStatus" class="journey-status">支援九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵；直達優先，並嘗試一次轉車方案。</div>
       <div id="journeyResults" class="journey-results"></div>
     </section>
 
-    <footer>實時資料由運輸署、九巴／龍運、城巴及綠色專線小巴開放數據提供。到站為非官方應用，資料只供參考。</footer>
+    <footer>實時資料由運輸署、九巴／龍運、城巴、綠色專線小巴、新大嶼山巴士及港鐵開放數據提供。到站為非官方應用，資料只供參考。</footer>
   </main>
   <script src="app.js"></script>
   <script src="stop-nearby.js"></script>
@@ -74,5 +74,6 @@
   <script src="journey-ctb-fix.js"></script>
   <script src="traffic-regions.js"></script>
   <script src="next-features.js"></script>
+  <script src="transit-extra.js"></script>
 </body>
 </html>
