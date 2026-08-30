@@ -1,5 +1,5 @@
-const CACHE = "daozhan-v3.5.0";
-const CORE = ["./", "./index.html", "./styles.css", "./journey.css", "./next-features.css", "./app.js", "./stop-nearby.js", "./fare.js", "./watch-sync.js", "./journey.js", "./journey-ctb-fix.js", "./traffic-regions.js", "./next-features.js", "./transit-extra.js", "./manifest.json", "./icon.svg", "./watch/", "./watch/index.html", "./watch/watch.css", "./watch/watch.js", "./watch/sync.js"];
+const CACHE = "daozhan-v3.5.1";
+const CORE = ["./", "./index.html", "./styles.css", "./journey.css", "./next-features.css", "./app.js", "./kmb-live.js", "./stop-nearby.js", "./fare.js", "./watch-sync.js", "./journey.js", "./journey-ctb-fix.js", "./traffic-regions.js", "./next-features.js", "./transit-extra.js", "./manifest.json", "./icon.svg", "./watch/", "./watch/index.html", "./watch/watch.css", "./watch/watch.js", "./watch/sync.js"];
 const DATA = ["./ctb-stops.json", "./kmb-stops.json", "./ctb-routes.json", "./kmb-routes.json", ...Array.from({length:8},(_,i)=>`./gmb-routes-${i}.json`), ...Array.from({length:16},(_,i)=>`./gmb-stops-${i}.json`)];
 self.addEventListener("install", event => {
   self.skipWaiting();
