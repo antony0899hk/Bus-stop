@@ -111,6 +111,8 @@
     return true;
   }
 
+  window.dzAddMtrFallback = addMtrFallback;
+
   if (typeof runJourneySearch === "function") {
     const previous = runJourneySearch;
     runJourneySearch = async function() {
