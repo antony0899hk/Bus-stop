@@ -1,5 +1,5 @@
-const CACHE = "daozhan-v3.6.6";
-const CORE = ["./", "./index.html", "./styles.css", "./journey.css", "./next-features.css", "./app.js", "./kmb-live.js", "./stop-nearby.js", "./fare.js", "./watch-sync.js", "./journey.js", "./journey-ctb-fix.js", "./traffic-regions.js", "./next-features.js", "./transit-extra.js", "./v36-enhancements.js", "./v361-journey-fix.js", "./legacy-demo-cleanup.js", "./journey-place-fix.js", "./v364-area-routing.js", "./v365-mtr-fallback.js", "./v366-fast-journey.js", "./manifest.json", "./icon.svg", "./watch/", "./watch/index.html", "./watch/watch.css", "./watch/watch.js", "./watch/sync.js"];
+const CACHE = "daozhan-v3.6.7";
+const CORE = ["./", "./index.html", "./styles.css", "./journey.css", "./next-features.css", "./app.js", "./kmb-live.js", "./stop-nearby.js", "./fare.js", "./watch-sync.js", "./journey.js", "./journey-ctb-fix.js", "./traffic-regions.js", "./next-features.js", "./transit-extra.js", "./v36-enhancements.js", "./v361-journey-fix.js", "./legacy-demo-cleanup.js", "./journey-place-fix.js", "./v364-area-routing.js", "./v365-mtr-fallback.js", "./v366-fast-journey.js", "./v367-network-bridge.js", "./manifest.json", "./icon.svg", "./watch/", "./watch/index.html", "./watch/watch.css", "./watch/watch.js", "./watch/sync.js"];
 const DATA = ["./ctb-stops.json", "./kmb-stops.json", "./ctb-routes.json", "./kmb-routes.json", ...Array.from({length:8},(_,i)=>`./gmb-routes-${i}.json`), ...Array.from({length:16},(_,i)=>`./gmb-stops-${i}.json`)];
 self.addEventListener("install", event => {
   self.skipWaiting();
