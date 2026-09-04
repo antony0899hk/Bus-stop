@@ -11,37 +11,12 @@
 </head>
 <body>
   <main class="app">
-    <header class="topbar">
-      <div><h1>到站</h1><p>九巴／龍運・城巴・小巴實時 ETA</p></div>
-      <div class="operator-legend"><span class="badge kmb">九巴</span><span class="badge ctb">城巴</span><span class="badge gmb">小巴</span></div>
-    </header>
-
+    <header class="topbar"><div><h1>到站</h1><p>九巴／龍運・城巴・小巴實時 ETA</p></div><div class="operator-legend"><span class="badge kmb">九巴</span><span class="badge ctb">城巴</span><span class="badge gmb">小巴</span></div></header>
     <section id="traffic-warning" class="warning hidden"><div class="warning-title">⚠️ 交通提示</div><div id="warning-text"></div><div id="warning-meta" class="warning-meta"></div></section>
-
-    <section id="favoritesSection" class="section hidden">
-      <div class="section-head"><h2>⭐ 我的常搭</h2><div><button id="syncWatchFavs" class="text-btn">⌚ 同步到 Watch</button><button id="clearFavs" class="text-btn">清除</button></div></div><div id="favorites"></div>
-    </section>
-
+    <section id="favoritesSection" class="section hidden"><div class="section-head"><h2>⭐ 我的常搭</h2><div><button id="syncWatchFavs" class="text-btn">⌚ 同步到 Watch</button><button id="clearFavs" class="text-btn">清除</button></div></div><div id="favorites"></div></section>
     <section class="nearby-panel"><div><div class="panel-title">📍 100m 即將到站</div><div id="nearbyStatus" class="status">撳下面按鈕使用手機定位</div></div><button id="locateBtn" class="primary-btn">使用目前位置</button></section>
-
-    <section id="nearbySection" class="section hidden">
-      <div class="section-head"><h2>附近最快到站</h2><span id="nearbyCount" class="small-muted"></span></div>
-      <div class="filter-row" aria-label="附近班次營辦商篩選">
-        <button class="filter active" data-near-filter="all">全部</button><button class="filter kmb-filter" data-near-filter="KMB">九巴</button><button class="filter ctb-filter" data-near-filter="CTB">城巴</button><button class="filter gmb-filter" data-near-filter="GMB">小巴</button><button class="filter mtr-filter" data-near-filter="MTR">MTR</button>
-      </div>
-      <button id="nearbyCollapseTop" class="more-btn compact hidden">收起 ↑</button>
-      <div id="nearbyResults"></div><button id="nearbyMore" class="more-btn hidden">顯示更多 ↓</button>
-    </section>
-
-    <section class="search-panel">
-      <label for="routeSearch">搜尋路線</label>
-      <div class="search-row"><input id="routeSearch" inputmode="text" autocomplete="off" placeholder="例如 270A、978、55K" /><button id="searchBtn">搜尋</button></div>
-      <div class="filter-row search-filters" aria-label="搜尋營辦商篩選">
-        <button class="filter active" data-search-filter="all">全部</button><button class="filter kmb-filter" data-search-filter="KMB">九巴</button><button class="filter ctb-filter" data-search-filter="CTB">城巴</button><button class="filter gmb-filter" data-search-filter="GMB">小巴</button><button class="filter mtr-filter" data-search-filter="MTR">MTR</button>
-      </div>
-      <div id="status" class="status">正在載入路線資料…</div>
-    </section>
-
+    <section id="nearbySection" class="section hidden"><div class="section-head"><h2>附近最快到站</h2><span id="nearbyCount" class="small-muted"></span></div><div class="filter-row" aria-label="附近班次營辦商篩選"><button class="filter active" data-near-filter="all">全部</button><button class="filter kmb-filter" data-near-filter="KMB">九巴</button><button class="filter ctb-filter" data-near-filter="CTB">城巴</button><button class="filter gmb-filter" data-near-filter="GMB">小巴</button><button class="filter mtr-filter" data-near-filter="MTR">MTR</button></div><button id="nearbyCollapseTop" class="more-btn compact hidden">收起 ↑</button><div id="nearbyResults"></div><button id="nearbyMore" class="more-btn hidden">顯示更多 ↓</button></section>
+    <section class="search-panel"><label for="routeSearch">搜尋路線</label><div class="search-row"><input id="routeSearch" inputmode="text" autocomplete="off" placeholder="例如 270A、978、55K" /><button id="searchBtn">搜尋</button></div><div class="filter-row search-filters" aria-label="搜尋營辦商篩選"><button class="filter active" data-search-filter="all">全部</button><button class="filter kmb-filter" data-search-filter="KMB">九巴</button><button class="filter ctb-filter" data-search-filter="CTB">城巴</button><button class="filter gmb-filter" data-search-filter="GMB">小巴</button><button class="filter mtr-filter" data-search-filter="MTR">MTR</button></div><div id="status" class="status">正在載入路線資料…</div></section>
     <section id="resultsSection" class="section hidden"><h2>搜尋結果</h2><div id="results"></div></section>
     <section id="routeSection" class="section hidden"><button id="backBtn" class="back-btn">‹ 返回</button><div id="routeHeader"></div><div id="directionTabs" class="direction-tabs"></div><div id="stops"></div></section>
 
@@ -49,111 +24,35 @@
       <div class="section-head"><h2 id="journeyTitle">點到點</h2><span class="coming">Beta</span></div>
       <div class="journey-inputs">
         <div class="journey-field"><label for="journeyFrom">起點</label><div class="journey-origin-row"><input id="journeyFrom" autocomplete="off" placeholder="例如 上水、國泰城" /><button id="journeyUseLocation" type="button">📍 我的位置</button></div></div>
-        <div class="journey-swap">↓</div>
+        <div class="journey-shortcuts" aria-label="常用地點"><button id="journeyHome" type="button">🏠 Home</button><button id="journeyOffice" type="button">🏢 Office</button><button id="journeySwap" type="button">↕️ 對調</button></div>
         <div class="journey-field"><label for="journeyTo">終點</label><input id="journeyTo" autocomplete="off" placeholder="例如 尖沙咀、旺角" /></div>
       </div>
       <button id="journeySearchBtn" class="journey-search-btn" type="button">搜尋而家有車嘅路線</button>
-      <div class="journey-mode-row" aria-label="點到點排序模式">
-        <button class="active" data-journey-mode="fastest">⚡ 最快</button>
-        <button data-journey-mode="walking">🚶 最少步行</button>
-        <button data-journey-mode="transfers">🔁 最少轉車</button>
-        <button data-journey-mode="cheapest">💰 最平</button>
-      </div>
-      <div id="journeyStatus" class="journey-status">優先只顯示目前有實時 ETA、確認仍在服務嘅路線。</div>
-      <div id="journeyResults" class="journey-results"></div>
+      <div class="journey-mode-row" aria-label="點到點排序模式"><button class="active" data-journey-mode="fastest">⚡ 最快</button><button data-journey-mode="walking">🚶 最少步行</button><button data-journey-mode="transfers">🔁 最少轉車</button><button data-journey-mode="cheapest">💰 最平</button></div>
+      <div id="journeyStatus" class="journey-status">優先只顯示目前有實時 ETA、確認仍在服務嘅路線。</div><div id="journeyResults" class="journey-results"></div>
     </section>
-
     <footer>實時資料由運輸署、九巴／龍運、城巴及綠色專線小巴開放數據提供。到站為非官方應用，資料只供參考。</footer>
   </main>
-  <script src="app.js"></script>
-  <script src="fare.js"></script>
-  <script src="watch-sync.js"></script>
-  <script src="journey.js"></script>
+  <script src="app.js"></script><script src="fare.js"></script><script src="watch-sync.js"></script><script src="journey.js"></script>
   <script>
-    async function journeyLegEta(leg, stopId) {
-      return journeyEta({
-        kind: "direct",
-        operator: leg.operator,
-        route: leg.route,
-        bound: leg.bound,
-        serviceType: leg.serviceType || "1",
-        originStop: { id: String(stopId) }
-      });
+    function useSavedJourneyPlace(key, label) {
+      const input = j$("#journeyFrom");
+      const saved = localStorage.getItem(key);
+      if (saved) { input.value = saved; journeyState.originLocation = null; j$("#journeyStatus").textContent = `${label}：${saved}`; return; }
+      const value = prompt(`設定 ${label} 地點／站名`, input.value.trim());
+      if (!value) return;
+      localStorage.setItem(key, value.trim()); input.value = value.trim(); journeyState.originLocation = null; j$("#journeyStatus").textContent = `已儲存 ${label}：${value.trim()}`;
     }
-
-    async function checkJourneyRunning(result) {
-      if (result.kind === "direct") {
-        result.eta = await journeyEta(result);
-        return Boolean(result.eta);
-      }
-      const [firstEta, secondEta] = await Promise.all([
-        journeyLegEta(result.first, result.first.originStop.id),
-        journeyLegEta(result.second, result.transferStopId)
-      ]);
-      result.firstEta = firstEta;
-      result.secondEta = secondEta;
-      result.eta = firstEta;
-      return Boolean(firstEta && secondEta);
-    }
-
+    j$("#journeyHome").addEventListener("click", () => useSavedJourneyPlace("daozhan_journey_home", "Home"));
+    j$("#journeyOffice").addEventListener("click", () => useSavedJourneyPlace("daozhan_journey_office", "Office"));
+    j$("#journeySwap").addEventListener("click", () => { const a=j$("#journeyFrom"), b=j$("#journeyTo"); [a.value,b.value]=[b.value,a.value]; journeyState.originLocation=null; });
+    async function journeyLegEta(leg, stopId) { return journeyEta({kind:"direct",operator:leg.operator,route:leg.route,bound:leg.bound,serviceType:leg.serviceType||"1",originStop:{id:String(stopId)}}); }
+    async function checkJourneyRunning(result) { if(result.kind==="direct"){result.eta=await journeyEta(result);return Boolean(result.eta);} const [firstEta,secondEta]=await Promise.all([journeyLegEta(result.first,result.first.originStop.id),journeyLegEta(result.second,result.transferStopId)]);result.firstEta=firstEta;result.secondEta=secondEta;result.eta=firstEta;return Boolean(firstEta&&secondEta); }
     async function runJourneySearch() {
-      const button = j$("#journeySearchBtn");
-      const status = j$("#journeyStatus");
-      const originValue = j$("#journeyFrom").value;
-      const destinationValue = j$("#journeyTo").value;
-      const origin = resolvePlace(originValue, journeyState.originLocation);
-      const destination = resolvePlace(destinationValue);
-      if (!origin.length || !destination.length) {
-        status.textContent = "搵唔到起點或終點車站，請輸入較短地名／站名。";
-        return;
-      }
-      button.disabled = true;
-      status.textContent = "正在搵而家仍有車嘅路線…";
-      j$("#journeyResults").innerHTML = '<div class="loading">搜尋實時班次中…</div>';
-      try {
-        await ensureJourneyIndexes();
-        const direct = [
-          ...directFromIndex(journeyState.kmbIndex, origin.filter(x=>x.operator==="KMB"), destination.filter(x=>x.operator==="KMB")),
-          ...directFromIndex(journeyState.ctbIndex, origin.filter(x=>x.operator==="CTB"), destination.filter(x=>x.operator==="CTB")),
-          ...(await gmbDirect(origin, destination))
-        ];
-        const transfers = [
-          ...oneTransferFromIndex(journeyState.kmbIndex, origin, destination),
-          ...oneTransferFromIndex(journeyState.ctbIndex, origin, destination)
-        ];
-        const uniq = new Map();
-        [...direct, ...transfers].forEach(r => {
-          const key = r.kind === "direct" ? `${r.operator}|${r.route}|${r.originStop.id}|${r.destinationStop?.id}` : `${r.first.operator}|${r.first.route}>${r.second.route}|${r.transferStopId}`;
-          if (!uniq.has(key)) uniq.set(key,r);
-        });
-
-        // Keep the first live check small so mobile search stays quick.
-        const candidates = [...uniq.values()]
-          .sort((a,b) => a.transferCount - b.transferCount || a.stopCount - b.stopCount || a.walkMeters - b.walkMeters)
-          .slice(0,24);
-        const checked = await Promise.all(candidates.map(async r => ({ r, running: await checkJourneyRunning(r) })));
-        journeyState.results = checked.filter(x => x.running).map(x => x.r).slice(0,18);
-
-        if (!journeyState.results.length) {
-          status.textContent = "暫時搵唔到有實時 ETA 嘅可用路線；已收車／未有班次嘅路線唔會顯示。";
-          renderJourneyResults();
-          return;
-        }
-
-        status.textContent = `而家有 ${journeyState.results.length} 個可搭方案，只顯示有實時 ETA 嘅路線。`;
-        renderJourneyResults();
-
-        // Fare is secondary: load it after ETA results are already visible.
-        Promise.all(journeyState.results.filter(r=>r.kind==="direct").slice(0,12).map(async r => {
-          r.fare = await journeyFare(r);
-        })).then(() => renderJourneyResults()).catch(() => {});
-      } catch (e) {
-        status.textContent = `點對點暫時未能搜尋：${e.message}`;
-        j$("#journeyResults").innerHTML = '<div class="error">其他 ETA 功能仍可正常使用。</div>';
-      } finally {
-        button.disabled = false;
-      }
+      const button=j$("#journeySearchBtn"),status=j$("#journeyStatus"); const origin=resolvePlace(j$("#journeyFrom").value,journeyState.originLocation),destination=resolvePlace(j$("#journeyTo").value);
+      if(!origin.length||!destination.length){status.textContent="搵唔到起點或終點車站，請輸入較短地名／站名。";return;} button.disabled=true;status.textContent="正在搵而家仍有車嘅路線…";j$("#journeyResults").innerHTML='<div class="loading">搜尋實時班次中…</div>';
+      try { await ensureJourneyIndexes(); const direct=[...directFromIndex(journeyState.kmbIndex,origin.filter(x=>x.operator==="KMB"),destination.filter(x=>x.operator==="KMB")),...directFromIndex(journeyState.ctbIndex,origin.filter(x=>x.operator==="CTB"),destination.filter(x=>x.operator==="CTB")),...(await gmbDirect(origin,destination))]; const transfers=[...oneTransferFromIndex(journeyState.kmbIndex,origin,destination),...oneTransferFromIndex(journeyState.ctbIndex,origin,destination)]; const uniq=new Map(); [...direct,...transfers].forEach(r=>{const key=r.kind==="direct"?`${r.operator}|${r.route}|${r.originStop.id}|${r.destinationStop?.id}`:`${r.first.operator}|${r.first.route}>${r.second.route}|${r.transferStopId}`;if(!uniq.has(key))uniq.set(key,r);}); const candidates=[...uniq.values()].sort((a,b)=>a.transferCount-b.transferCount||a.stopCount-b.stopCount||a.walkMeters-b.walkMeters).slice(0,24); const checked=await Promise.all(candidates.map(async r=>({r,running:await checkJourneyRunning(r)}))); journeyState.results=checked.filter(x=>x.running).map(x=>x.r).slice(0,18); if(!journeyState.results.length){status.textContent="暫時搵唔到有實時 ETA 嘅可用路線；已收車／未有班次嘅路線唔會顯示。";renderJourneyResults();return;} status.textContent=`而家有 ${journeyState.results.length} 個可搭方案，只顯示有實時 ETA 嘅路線。`;renderJourneyResults(); Promise.all(journeyState.results.filter(r=>r.kind==="direct").slice(0,12).map(async r=>{r.fare=await journeyFare(r);})).then(()=>renderJourneyResults()).catch(()=>{});
+      } catch(e){status.textContent=`點對點暫時未能搜尋：${e.message}`;j$("#journeyResults").innerHTML='<div class="error">其他 ETA 功能仍可正常使用。</div>';} finally{button.disabled=false;}
     }
   </script>
-</body>
-</html>
+</body></html>
