@@ -35,21 +35,39 @@
     const transfer = point(r.first?.operator, null, r.transferStopId || r.first?.transferStopId);
     const secondDest = point(r.second?.operator, r.second?.destinationStop);
 
-    // If the first bus only moves the passenger within the same ~100m stop cluster,
-    // walking to the next boarding point is preferable to using a feeder bus.
     if (near(firstOrigin, transfer)) return true;
-
-    // If the second bus only finishes within the same ~100m cluster as the transfer point,
-    // walking should replace that extra bus leg.
     if (near(transfer, secondDest)) return true;
-
     return false;
+  }
+
+  function routeClass(r) {
+    if (r?.kind === "direct" && r?.operator !== "MTR") return 0;
+    if (r?.kind === "direct" && r?.operator === "MTR") return 1;
+    if (r?._dzMtrBridge) return 2;
+    if (r?.kind === "transfer") return 3;
+    return 4;
+  }
+
+  function fallbackScore(r) {
+    const etaMin = r?.eta ? Math.max(0, Math.round((new Date(r.eta).getTime() - Date.now()) / 60000)) : 30;
+    return etaMin * 100 + Number(r?.walkMeters || 0) + Number(r?.stopCount || 0) * 40;
+  }
+
+  function directFirstSort() {
+    if (!Array.isArray(journeyState?.results)) return;
+    const score = typeof journeyScore === "function" ? journeyScore : fallbackScore;
+    journeyState.results.sort((a,b) => {
+      const ca = routeClass(a), cb = routeClass(b);
+      if (ca !== cb) return ca - cb;
+      return Number(score(a) || 0) - Number(score(b) || 0);
+    });
   }
 
   function applyNearbyWalkRule() {
     if (!Array.isArray(journeyState?.results)) return 0;
     const before = journeyState.results.length;
     journeyState.results = journeyState.results.filter(r => !suppressPointlessTransfer(r));
+    directFirstSort();
     return before - journeyState.results.length;
   }
 
@@ -58,13 +76,14 @@
     runJourneySearch = async function() {
       await previous();
       const removed = applyNearbyWalkRule();
-      if (removed) {
-        try { renderJourneyResults(); } catch {}
-        const st = $("#journeyStatus");
-        if (st) st.textContent = `${st.textContent || ""} 已將 100m 內站點視為步行範圍，移除 ${removed} 個多餘短程轉車方案。`.trim();
+      try { renderJourneyResults(); } catch {}
+      const st = $("#journeyStatus");
+      if (st) {
+        const tail = removed ? `；另外移除 ${removed} 個 100m 內多餘短程轉車方案` : "";
+        st.textContent = `${st.textContent || ""} 已改為直達方案優先，再顯示轉車方案${tail}。`.trim();
       }
     };
   }
 
-  window.dzNearbyStopWalk = { version:"3.7.5", meters:WALK_EQUIV_METERS, apply:applyNearbyWalkRule };
+  window.dzNearbyStopWalk = { version:"3.7.6", meters:WALK_EQUIV_METERS, apply:applyNearbyWalkRule, sort:directFirstSort };
 })();
