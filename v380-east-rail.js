@@ -10,12 +10,15 @@
   const MAX_SCAN=8;
   const EXTRA_SCAN=4;
   const EARLY_STOP_MARGIN=22;
+  const EAL_COORDS={
+    ADM:[22.2795,114.1654],EXC:[22.2831,114.1731],HUH:[22.3030,114.1810],MKK:[22.3213,114.1726],KOT:[22.3369,114.1761],TAW:[22.3727,114.1786],SHT:[22.3810,114.1870],FOT:[22.3952,114.1983],RAC:[22.4007,114.2021],UNI:[22.4134,114.2101],TAP:[22.4445,114.1706],TWO:[22.4511,114.1612],FAN:[22.4920,114.1392],SHS:[22.5011,114.1279],LOW:[22.5284,114.1132],LMC:[22.5159,114.0657]
+  };
 
   const geoStops=()=>typeof allJourneyStops==="function"?allJourneyStops().filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)):[];
   const dist=(a,b)=>a&&b&&typeof distanceMeters==="function"?distanceMeters(a.lat,a.lon,b.lat,b.lon):Infinity;
   function centroid(a){const x=(a||[]).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon));if(!x.length)return null;return{lat:x.reduce((n,s)=>n+s.lat,0)/x.length,lon:x.reduce((n,s)=>n+s.lon,0)/x.length};}
   function around(point,radius,limit=40){if(!point)return[];return geoStops().map(s=>({...s,distance:dist(point,s)})).filter(s=>s.distance<=radius).sort((a,b)=>a.distance-b.distance).slice(0,limit);}
-  function stationCoords(st){const q=String(st?.name_tc||"").replace(/站$/,'');if(!q)return null;const hits=geoStops().filter(s=>String(s.name||"").includes(q));return hits.length?centroid(hits):null;}
+  function stationCoords(st){const fixed=EAL_COORDS[String(st?.code||"").toUpperCase()];if(fixed)return{lat:fixed[0],lon:fixed[1]};const q=String(st?.name_tc||"").replace(/站$/,'');if(!q)return null;const hits=geoStops().filter(s=>String(s.name||"").includes(q));return hits.length?centroid(hits):null;}
   function lineStations(){
     if(!extra?.mtrRows?.length)return[];
     const groups=new Map();
@@ -62,6 +65,7 @@
   }
 
   async function build(from,to){
+    if(typeof extra?.ensureMtrData==="function")await extra.ensureMtrData();
     const stations=lineStations();if(stations.length<3)return[];
     const o=originData(from),dest=expandDestination(to),dp=centroid(dest);if(!o.point||!o.stops.length||!dp||!dest.length)return[];
     const start=nearestStation(o.point,stations);if(!start||start.distance>MAX_START_DISTANCE)return[];
@@ -83,7 +87,7 @@
 
   if(typeof runJourneySearch==="function"){
     const previous=runJourneySearch;
-    runJourneySearch=async function(){const from=$("#journeyFrom")?.value.trim()||"",to=$("#journeyTo")?.value.trim()||"";await previous();journeyState.results=journeyState.results.filter(r=>!r?._dzEastRail);if(!shouldHandle(from,to))return;const rows=await build(from,to).catch(()=>[]);journeyState.results=journeyState.results.filter(r=>!r?._dzMtrChain);if(rows.length)journeyState.results.push(...rows);try{renderJourneyResults();}catch{};const st=$("#journeyStatus");if(st)st.textContent=`${st.textContent||''}；東鐵 Line-first 掃描 ${rows.length?`找到 ${rows.length} 個方案`:'暫無合適方案'}。`;};
+    runJourneySearch=async function(){const from=$("#journeyFrom")?.value.trim()||"",to=$("#journeyTo")?.value.trim()||"";await previous();journeyState.results=journeyState.results.filter(r=>!r?._dzEastRail);try{if(typeof extra?.ensureMtrData==="function")await extra.ensureMtrData();}catch{}if(!shouldHandle(from,to))return;const rows=await build(from,to).catch(()=>[]);journeyState.results=journeyState.results.filter(r=>!r?._dzMtrChain);if(rows.length)journeyState.results.push(...rows);try{renderJourneyResults();}catch{};const st=$("#journeyStatus");if(st)st.textContent=`${st.textContent||''}；東鐵 Line-first 掃描 ${rows.length?`找到 ${rows.length} 個方案`:'暫無合適方案'}。`;};
   }
   if(typeof renderJourneyResults==="function"){
     const old=renderJourneyResults;renderJourneyResults=function(){const rows=(journeyState?.results||[]).filter(r=>r?._dzEastRail);if(!rows.length)return old();const original=journeyState.results;journeyState.results=original.filter(r=>!r?._dzEastRail);old();journeyState.results=original;const box=$("#journeyResults");if(box)rows.sort((a,b)=>a._dzEastRailTotal-b._dzEastRailTotal).forEach(r=>box.insertAdjacentHTML("beforeend",render(r)));};
