@@ -32,7 +32,7 @@
 
   function localBus(origin,dest){const out=[];try{if(journeyState?.kmbIndex)out.push(...directFromIndex(journeyState.kmbIndex,origin,dest));}catch{};try{if(journeyState?.ctbIndex)out.push(...directFromIndex(journeyState.ctbIndex,origin,dest));}catch{};return out;}
   async function withEta(r){try{if(typeof journeyEta==="function")r.eta=await journeyEta(r);}catch{}return r;}
-  function futureLegCost(r){if(!r)return999;return 7+Number(r.stopCount||0)*1.7+Number(r.walkMeters||0)/80;}
+  function futureLegCost(r){if(!r)return 999;return 7+Number(r.stopCount||0)*1.7+Number(r.walkMeters||0)/80;}
   function accessLegCost(r){const wait=r?.eta&&typeof etaMinutes==="function"?Math.max(0,etaMinutes(r.eta)):9;return wait+Number(r?.stopCount||0)*1.7+Number(r?.walkMeters||0)/80;}
   async function bestAccess(origin,dest){let rows=localBus(origin,dest).slice(0,12);try{if(rows.length<2&&typeof gmbDirect==="function")rows.push(...await gmbDirect(origin,dest));}catch{};await Promise.all(rows.slice(0,6).map(withEta));rows=rows.filter(r=>r.eta).sort((a,b)=>accessLegCost(a)-accessLegCost(b));return rows[0]||null;}
   async function bestLastMile(origin,dest,allowGmb=true){let rows=localBus(origin,dest).slice(0,16);try{if(allowGmb&&rows.length<2&&typeof gmbDirect==="function")rows.push(...await gmbDirect(origin,dest));}catch{};rows.sort((a,b)=>futureLegCost(a)-futureLegCost(b));return rows[0]||null;}
