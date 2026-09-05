@@ -136,6 +136,11 @@
     return extra.mtrPromise;
   }
 
+  // Let later journey-planner layers explicitly wait for the MTR catalogue.
+  // Previously the East Rail layer could run while the background MTR fetch was
+  // still in flight, see an empty catalogue, and silently return no result.
+  extra.ensureMtrData = ensureMtrData;
+
   function mtrMatch(value, location=null){
     const q=String(value||"").trim().replace(/\s+/g,"").replace(/港鐵/g,"").replace(/站$/,'');
     const out=[];
