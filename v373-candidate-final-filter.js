@@ -51,8 +51,41 @@
     return [...m.values()];
   }
 
+  function getCurrentLocation(){
+    return new Promise((resolve,reject)=>{
+      if(!navigator.geolocation)return reject(new Error("不支援定位"));
+      navigator.geolocation.getCurrentPosition(
+        pos=>resolve({lat:pos.coords.latitude,lon:pos.coords.longitude}),
+        reject,
+        {enableHighAccuracy:true,timeout:12000,maximumAge:30000}
+      );
+    });
+  }
+
+  async function ensureDefaultOrigin(){
+    const fromEl=$("#journeyFrom");
+    if(!fromEl)return false;
+    const raw=fromEl.value.trim();
+    if(raw&&raw!=="我的位置")return true;
+    fromEl.value="我的位置";
+    if(journeyState?.originLocation)return true;
+    const st=$("#journeyStatus");
+    if(st)st.textContent="正在取得目前位置作為起點…";
+    try{
+      journeyState.originLocation=await getCurrentLocation();
+      if(st)st.textContent="已使用目前位置作為起點。";
+      return true;
+    }catch{
+      if(st)st.textContent="未能取得目前位置，請檢查 Safari 定位權限，或手動輸入起點。";
+      return false;
+    }
+  }
+
   async function generateBroadCandidates(from,to){
-    const origin=areaStops(from,ORIGIN_RADIUS),dest=areaStops(to,DEST_RADIUS);
+    const origin=journeyState?.originLocation&&from==="我的位置"
+      ? resolvePlace(from,journeyState.originLocation)
+      : areaStops(from,ORIGIN_RADIUS);
+    const dest=areaStops(to,DEST_RADIUS);
     let rows=[];
     if(typeof ensureJourneyIndexes==="function")await ensureJourneyIndexes();
     if(journeyState.kmbIndex){
@@ -76,8 +109,6 @@
         const firstEta=await etaForLeg(r.first,r.first?.originStop?.id);
         if(!firstEta)continue;
         r.firstEta=firstEta;r.eta=firstEta;
-        // Candidate-first principle: the second leg is a future boarding event.
-        // Keep it unless there is positive evidence it is unavailable.
         const secondEta=await etaForLeg(r.second,r.transferStopId);
         r.secondEta=secondEta||null;
         r._dzFutureTransfer=!secondEta;
@@ -94,15 +125,20 @@
     return dedupe(out);
   }
 
+  const fromField=$("#journeyFrom");
+  if(fromField&&!fromField.value.trim())fromField.value="我的位置";
+
   if(typeof runJourneySearch!=="function")return;
   const previous=runJourneySearch;
   runJourneySearch=async function(){
     const myToken=++token;
-    const from=$("#journeyFrom")?.value.trim()||"",to=$("#journeyTo")?.value.trim()||"";
+    const originReady=await ensureDefaultOrigin();
+    if(!originReady||myToken!==token)return;
+    const from=$("#journeyFrom")?.value.trim()||"我的位置",to=$("#journeyTo")?.value.trim()||"";
+    if(!to)return previous();
     await previous();
-    if(myToken!==token||!from||!to)return;
+    if(myToken!==token)return;
 
-    // Always preserve candidates already found, then add a broad candidate pool.
     let pool=[...(journeyState.results||[])];
     try{pool.push(...await generateBroadCandidates(from,to));}catch{}
     pool=dedupe(pool);
@@ -117,5 +153,5 @@
     }
   };
 
-  window.dzCandidateFirstRouting={version:"3.7.3"};
+  window.dzCandidateFirstRouting={version:"3.7.4",defaultOrigin:"我的位置"};
 })();
