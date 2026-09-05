@@ -44,7 +44,7 @@
     return{kind:"transit",station:start.station,coords:start.coords,leg,cost:accessLegCost(leg)};
   }
   function scanIndexes(startIndex,targetIndex,length){
-    const dir=targetIndex>=startIndex?1:-1,out=[];let i=startIndex;
+    const dir=targetIndex>=startIndex?1:-1,out=[];let i=startIndex+dir;
     while(i>=0&&i<length&&out.length<MAX_SCAN){out.push(i);i+=dir;}
     return{indexes:out,dir,next:i};
   }
@@ -65,7 +65,7 @@
     const stations=lineStations();if(stations.length<3)return[];
     const o=originData(from),dest=expandDestination(to),dp=centroid(dest);if(!o.point||!o.stops.length||!dp||!dest.length)return[];
     const start=nearestStation(o.point,stations);if(!start||start.distance>MAX_START_DISTANCE)return[];
-    const target=nearestStation(dp,stations);if(!target)return[];
+    const target=nearestStation(dp,stations);if(!target||target.index===start.index)return[];
     const access=await accessPlan(o.point,o.stops,start);if(!access)return[];
     const plan=scanIndexes(start.index,target.index,stations.length),rows=[];let best=Infinity;
     async function scanOne(idx,rank){const st=stations[idx],c=stationCoords(st);if(!c)return;const rail=4+Math.abs(idx-start.index)*2.8;if(rows.length>=3&&rail>best+EARLY_STOP_MARGIN)return;const exit=await exitPlan(st,c,dest,dp,rank<4);if(!exit)return;const chain=makeChain(access,start.index,idx,exit,stations);rows.push(chain);best=Math.min(best,chain._dzEastRailTotal);}
