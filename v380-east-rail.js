@@ -34,11 +34,11 @@
   async function withEta(r){try{if(typeof journeyEta==="function")r.eta=await journeyEta(r);}catch{}return r;}
   function futureLegCost(r){if(!r)return 999;return 7+Number(r.stopCount||0)*1.7+Number(r.walkMeters||0)/80;}
   function accessLegCost(r){const wait=r?.eta&&typeof etaMinutes==="function"?Math.max(0,etaMinutes(r.eta)):9;return wait+Number(r?.stopCount||0)*1.7+Number(r?.walkMeters||0)/80;}
-  async function bestAccess(origin,dest){let rows=localBus(origin,dest).slice(0,12);try{if(rows.length<2&&typeof gmbDirect==="function")rows.push(...await gmbDirect(origin,dest));}catch{};await Promise.all(rows.slice(0,6).map(withEta));rows=rows.filter(r=>r.eta).sort((a,b)=>accessLegCost(a)-accessLegCost(b));return rows[0]||null;}
-  async function bestLastMile(origin,dest,allowGmb=true){let rows=localBus(origin,dest).slice(0,16);try{if(allowGmb&&rows.length<2&&typeof gmbDirect==="function")rows.push(...await gmbDirect(origin,dest));}catch{};rows.sort((a,b)=>futureLegCost(a)-futureLegCost(b));return rows[0]||null;}
+  async function bestAccess(origin,dest){let rows=localBus(origin,dest).slice(0,10);try{if(rows.length<2&&typeof gmbDirect==="function")rows.push(...await gmbDirect(origin,dest));}catch{};await Promise.all(rows.slice(0,5).map(withEta));rows=rows.filter(r=>r.eta).sort((a,b)=>accessLegCost(a)-accessLegCost(b));return rows[0]||null;}
+  async function bestLastMile(origin,dest,allowGmb=true){let rows=localBus(origin,dest).slice(0,12);try{if(allowGmb&&rows.length<2&&typeof gmbDirect==="function")rows.push(...await gmbDirect(origin,dest));}catch{};rows.sort((a,b)=>futureLegCost(a)-futureLegCost(b));return rows[0]||null;}
 
   async function accessPlan(originPoint,originStops,start){
-    const stationStops=around(start.coords,STATION_RADIUS,30);
+    const stationStops=around(start.coords,STATION_RADIUS,28);
     if(start.distance<=950)return{kind:"walk",station:start.station,coords:start.coords,walkMeters:start.distance,cost:start.distance/80};
     const leg=await bestAccess(originStops,stationStops);if(!leg)return null;
     return{kind:"transit",station:start.station,coords:start.coords,leg,cost:accessLegCost(leg)};
@@ -51,7 +51,7 @@
   async function exitPlan(station,coords,destinationStops,destPoint,allowGmb){
     const sd=dist(coords,destPoint);
     if(sd<=1050)return{kind:"walk",station,coords,walkMeters:sd,cost:sd/80};
-    const stationStops=around(coords,STATION_RADIUS,32);if(!stationStops.length)return null;
+    const stationStops=around(coords,STATION_RADIUS,28);if(!stationStops.length)return null;
     const leg=await bestLastMile(stationStops,destinationStops,allowGmb);if(!leg)return null;
     return{kind:"transit",station,coords,leg,cost:futureLegCost(leg)};
   }
