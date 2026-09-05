@@ -137,6 +137,10 @@
     runJourneySearch=async function(){
       const from=$("#journeyFrom")?.value.trim()||"",to=$("#journeyTo")?.value.trim()||"";
       await previous();
+      if(window.dzEastRailEngine?.shouldHandle?.(from,to)){
+        journeyState.results=journeyState.results.filter(r=>!r?._dzMtrChain);
+        return;
+      }
       const chains=await buildMtrChains(from,to).catch(()=>[]);
       journeyState.results=journeyState.results.filter(r=>!r?._dzMtrChain);
       if(chains.length)journeyState.results.push(...chains);
