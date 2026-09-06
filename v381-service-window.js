@@ -15,7 +15,7 @@
     const dir=String(leg.bound||"O").toLowerCase();
     const rs=await getJSON(`${CTB_API}/route-stop/CTB/${encodeURIComponent(leg.route)}/${encodeURIComponent(dir)}`,{ttl:300000,retries:0});
     const first=(rs.data||[])[0]?.stop;
-    if(!first)return false;
+    if(!first)return null;
     const j=await getJSON(`${CTB_API}/eta/CTB/${encodeURIComponent(first)}/${encodeURIComponent(leg.route)}`,{ttl:60000,retries:0});
     return (j.data||[]).some(x=>(!leg.bound||!x.dir||String(x.dir).toUpperCase()===String(leg.bound).toUpperCase())&&future(x.eta));
   }
@@ -38,20 +38,26 @@
         const byTime=scheduledNow(await schedules(),leg);
         if(byTime!==null)return byTime;
         if(leg.operator==="KMB")return await kmbOperating(leg);
-        if(leg.operator==="CTB")return await ctbOperating(leg);
+        if(leg.operator==="CTB"){const x=await ctbOperating(leg);return x===null?true:x;}
         if(leg.operator==="GMB"&&typeof journeyEta==="function")return !!(await journeyEta(leg));
         return true;
-      }catch{return false;}
+      }catch{return true;}
     })();cache.set(key,p);return p;
   }
-  function legs(r){
-    if(r?.kind==="transfer")return[r.first,r.second];
-    if(r?._dzEastRail)return[r._dzAccess?.leg,r._dzExit?.leg].filter(Boolean);
-    if(r?._dzMtrChain)return[r._dzAccess?.leg,r._dzExit?.leg].filter(Boolean);
-    return r?.operator==="MTR"?[]:[r];
+
+  // Only the leg boarded now must be operating now. Later transfer / last-mile legs
+  // are reached in the future, so checking their current ETA would wrongly hide valid journeys.
+  function boardingLeg(r){
+    if(!r)return null;
+    if(r?.kind==="transfer")return r.first||null;
+    if(r?._dzDistrictCorridor)return r._dzAccess||r._dzMain||null;
+    if(r?._dzEastRail)return r._dzAccess?.leg||null;
+    if(r?._dzMtrChain)return r._dzAccess?.leg||null;
+    if(r?.operator==="MTR")return null;
+    return r;
   }
   async function filterRows(rows){
-    const checked=await Promise.all((rows||[]).map(async r=>({r,ok:(await Promise.all(legs(r).map(isOperating))).every(Boolean)})));
+    const checked=await Promise.all((rows||[]).map(async r=>{const leg=boardingLeg(r);return{r,ok:leg?await isOperating(leg):true};}));
     return checked.filter(x=>x.ok).map(x=>x.r);
   }
 
@@ -66,11 +72,11 @@
       journeyState.results=await filterRows(journeyState.results||[]);
       try{renderJourneyResults();}catch{}
       const removed=before-journeyState.results.length,st=$("#journeyStatus");
-      if(st&&removed>0)st.textContent=`${st.textContent||""}；已按今日服務日及現時服務時段隱藏 ${removed} 個不可用方案。`;
+      if(st&&removed>0)st.textContent=`${st.textContent||""}；已隱藏 ${removed} 個目前第一程未有服務的方案。`;
     }finally{
       document.body.classList.remove("dz-journey-searching");
       if(box)box.removeAttribute("aria-busy");
     }
   };
-  window.dzServiceWindowFilter={version:"3.8.1",isOperating};
+  window.dzServiceWindowFilter={version:"3.8.2",isOperating};
 })();
