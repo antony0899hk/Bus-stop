@@ -6,7 +6,7 @@
   const MAX_ORIGIN_STOPS = 18;
   const MAX_DEST_STOPS = 24;
   const MAX_FIRST_ROUTES = 18;
-  const MAX_TRANSFER_STOPS_PER_ROUTE = 18;
+  const MAX_TRANSFER_STOPS_PER_ROUTE = 30;
   const MAX_RESULTS = 12;
   let token = 0;
 
@@ -127,18 +127,20 @@
   async function validate(rows, myToken){
     const candidates=rows.filter(r=>!(!nightHours()&&(isNightRoute(r.route)||isNightRoute(r.first?.route)||isNightRoute(r.second?.route))));
     const checked=[];
-    for(const r of candidates.slice(0,30)){
+    for(const r of candidates.slice(0,42)){
       if(myToken!==token) return [];
       if(r.kind==="direct"){
         if(r.operator==="MTR"||r._dzMtrBridge){checked.push(r);continue;}
         const eta=await timeout(fetchEta(r.operator,r.originStop?.id,r.route,r.bound,r.serviceType),1700,null);
         if(eta){r.eta=eta;checked.push(r);}
       }else{
-        const [a,b]=await Promise.all([
-          timeout(fetchEta(r.first?.operator,r.first?.originStop?.id,r.first?.route,r.first?.bound,r.first?.serviceType),1700,null),
-          timeout(fetchEta(r.second?.operator,r.transferStopId,r.second?.route,r.second?.bound,r.second?.serviceType),1700,null)
-        ]);
-        if(a&&b){r.firstEta=a;r.secondEta=b;r.eta=a;checked.push(r);}
+        // Only the first leg is boarded now. The second leg is reached later, so
+        // lack of a live ETA at this exact moment must not delete a valid option.
+        const a=await timeout(fetchEta(r.first?.operator,r.first?.originStop?.id,r.first?.route,r.first?.bound,r.first?.serviceType),1700,null);
+        if(!a) continue;
+        r.firstEta=a;r.eta=a;
+        r.secondEta=await timeout(fetchEta(r.second?.operator,r.transferStopId,r.second?.route,r.second?.bound,r.second?.serviceType),900,null);
+        checked.push(r);
       }
     }
     return checked;
@@ -174,17 +176,17 @@
       const destination=resolvePlace(to,null).slice(0,MAX_DEST_STOPS);
       if(!origin.length||!destination.length){journeyState.results=[];renderJourneyResults();if(st)st.textContent="搵唔到起點或終點附近車站。";return;}
       let rows=[...directCandidates(origin,destination),...buildTransfers(origin,destination).filter(r=>!walkingDominates(r))];
-      rows=dedupe(rows).sort((a,b)=>score(a)-score(b)).slice(0,30);
+      rows=dedupe(rows).sort((a,b)=>score(a)-score(b)).slice(0,42);
       const live=await validate(rows,myToken); if(myToken!==token)return;
       journeyState.results=dedupe(live).sort((a,b)=>score(a)-score(b)).slice(0,MAX_RESULTS);
       journeyScore=score;
       try{renderJourneyResults();}catch{}
       if(window.dzAddMtrFallback){await timeout(window.dzAddMtrFallback(),3500,false);try{renderJourneyResults();}catch{}}
-      if(st)st.textContent=journeyState.results.length?`已確認 ${journeyState.results.length} 個現時有班次方案；短距離步行已優先，無 ETA／夜車／多餘 feeder 已排除。`:`暫時未搵到可確認實時班次嘅合理方案。`;
+      if(st)st.textContent=journeyState.results.length?`已確認 ${journeyState.results.length} 個第一程現時有班次方案；第二程按未來可達時段保留，短距離步行已優先。`:`暫時未搵到可確認第一程班次嘅合理方案。`;
     }catch(e){if(st)st.textContent=`搜尋失敗：${e?.message||"未知錯誤"}`;if(box)box.innerHTML='<div class="error">點到點搜尋暫時失敗。</div>';}
     finally{if(btn)btn.disabled=false;}
   }
 
-  window.dzRoutingEngineV2={search:searchV2,version:"3.7.0"};
+  window.dzRoutingEngineV2={search:searchV2,version:"3.9.10"};
   runJourneySearch=searchV2;
 })();
