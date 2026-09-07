@@ -49,4 +49,15 @@
     version: "3.9.9",
     dedupeNearbyRoutes
   };
+
+  // Load the bounded live transfer-time refiner after all existing routing wrappers.
+  // It does not scan the network; it only refines the first few already-found results.
+  const live=document.createElement('script');
+  live.src='v3100-live-transfer-time.js';
+  live.async=false;
+  live.onload=()=>{
+    const v=document.querySelector('.app-version');
+    if(v){v.textContent='v3.10.0';v.setAttribute('aria-label','版本 v3.10.0');}
+  };
+  document.body.appendChild(live);
 })();
