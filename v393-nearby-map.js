@@ -5,6 +5,9 @@
   const state393={radius:100,position:null,heading:null,lastPosition:null,stops:[],target:null,map:null,userMarker:null,radiusCircle:null,walkLine:null,walkArrow:null,stopLayers:[],watchId:null,leafletPromise:null,tileLayer:null,mapToken:0};
   window.dzNearbyMapState=state393;
 
+  const YIELD=()=>new Promise(r=>setTimeout(r,0));
+  const SAFE_CAP={KMB:5,CTB:5,GMB:4};
+
   function ensureControls(){
     const panel=$(".nearby-panel");if(!panel)return;
     if(!panel.querySelector(".dz393-nearby-actions")){
@@ -35,8 +38,25 @@
   function collectStops(pos,radius){
     const out=[];for(const [operator,map] of [["KMB",state.kmbStops],["CTB",state.ctbStops],["GMB",state.gmbStops]]){
       const a=[];for(const [id,s] of map){const c=coords(s);if(!c)continue;const d=distanceMeters(pos.lat,pos.lon,c.lat,c.lon);if(Number.isFinite(d)&&d<=radius)a.push({operator,stop:String(id),stopObj:s,lat:c.lat,lon:c.lon,name:nameOf(s,id),distance:d});}
-      a.sort((x,y)=>x.distance-y.distance);out.push(...a.slice(0,20));
+      a.sort((x,y)=>x.distance-y.distance);out.push(...a.slice(0,SAFE_CAP[operator]||4));
     }return out.sort((a,b)=>a.distance-b.distance);
+  }
+  async function collectStopsSafe(pos,radius){
+    const out=[];
+    const latPad=radius/110540+0.001, lonPad=radius/(111320*Math.max(.3,Math.cos(pos.lat*Math.PI/180)))+0.001;
+    for(const [operator,map] of [["KMB",state.kmbStops],["CTB",state.ctbStops],["GMB",state.gmbStops]]){
+      const a=[];let n=0;
+      for(const [id,s] of map){
+        const c=coords(s);if(!c)continue;
+        if(Math.abs(c.lat-pos.lat)>latPad||Math.abs(c.lon-pos.lon)>lonPad)continue;
+        const d=distanceMeters(pos.lat,pos.lon,c.lat,c.lon);
+        if(Number.isFinite(d)&&d<=radius)a.push({operator,stop:String(id),stopObj:s,lat:c.lat,lon:c.lon,name:nameOf(s,id),distance:d});
+        if((++n%2500)===0)await YIELD();
+      }
+      a.sort((x,y)=>x.distance-y.distance);out.push(...a.slice(0,SAFE_CAP[operator]||4));
+      await YIELD();
+    }
+    return out.sort((a,b)=>a.distance-b.distance);
   }
   function bearing(a,b){if(!a||!b)return 0;const toRad=x=>x*Math.PI/180,toDeg=x=>x*180/Math.PI;const p1=toRad(a.lat),p2=toRad(b.lat),dl=toRad(b.lon-a.lon);const y=Math.sin(dl)*Math.cos(p2),x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);return (toDeg(Math.atan2(y,x))+360)%360;}
   function displayHeading(pos){const h=Number(pos?.heading);if(Number.isFinite(h)&&h>=0)return h;if(state393.lastPosition&&distanceMeters(state393.lastPosition.lat,state393.lastPosition.lon,pos.lat,pos.lon)>3)return bearing(state393.lastPosition,pos);return Number.isFinite(state393.heading)?state393.heading:0;}
@@ -69,16 +89,18 @@
     state393.radius=Number(radius)||100;ensureControls();$$('[data-dz-radius]').forEach(b=>b.classList.toggle('active',Number(b.dataset.dzRadius)===state393.radius));const title=$(".nearby-panel .panel-title");if(title)title.textContent=`📍 ${state393.radius}m 即將到站`;const st=$("#nearbyStatus");if(st)st.textContent='正在取得位置…';const btn=$("#locateBtn");if(btn)btn.disabled=true;
     if(!navigator.geolocation){if(st)st.textContent='此瀏覽器不支援定位。';if(btn)btn.disabled=false;return;}
     navigator.geolocation.getCurrentPosition(async pos=>{
-      const p={lat:pos.coords.latitude,lon:pos.coords.longitude};state393.lastPosition=state393.position;state393.position=p;state393.heading=Number.isFinite(pos.coords.heading)?pos.coords.heading:state393.heading;state393.stops=collectStops(p,state393.radius);if(st)st.textContent=`定位成功，搜尋 ${state393.radius}m 內車站…`;
-      try{if(typeof loadNearbyEtas==='function')await loadNearbyEtas(state393.stops.map(x=>({operator:x.operator,stop:x.stop,stopObj:x.stopObj,distance:x.distance})));}catch{}
-      const sec=$("#nearbySection");sec?.classList.remove('hidden');const count=$("#nearbyCount");if(count)count.textContent=`${state393.radius}m`;if(st)st.textContent=`已搜尋 ${state393.radius}m 範圍，共 ${state393.stops.length} 個附近站點。`;
-      // Critical Safari rule: do NOT create Leaflet, map DOM, tiles, or watchPosition here.
-      // Nearby search stays ETA/text-only. Map is created only after explicit user tap.
-      if(btn)btn.disabled=false;
-    },err=>{if(st)st.textContent=err.code===1?'你未允許定位；可以喺瀏覽器設定開啟。':'暫時無法取得位置。';if(btn)btn.disabled=false;},{enableHighAccuracy:true,timeout:12000,maximumAge:15000});
+      try{
+        const p={lat:pos.coords.latitude,lon:pos.coords.longitude};state393.lastPosition=state393.position;state393.position=p;state393.heading=Number.isFinite(pos.coords.heading)?pos.coords.heading:state393.heading;
+        if(st)st.textContent=`定位成功，搜尋 ${state393.radius}m 內車站…`;
+        state393.stops=await collectStopsSafe(p,state393.radius);
+        await YIELD();
+        try{if(typeof loadNearbyEtas==='function')await loadNearbyEtas(state393.stops.map(x=>({operator:x.operator,stop:x.stop,stopObj:x.stopObj,distance:x.distance})));}catch{}
+        const sec=$("#nearbySection");sec?.classList.remove('hidden');const count=$("#nearbyCount");if(count)count.textContent=`${state393.radius}m`;if(st)st.textContent=`已搜尋 ${state393.radius}m 範圍，共 ${state393.stops.length} 個附近站點。`;
+      }finally{if(btn)btn.disabled=false;}
+    },err=>{if(st)st.textContent=err.code===1?'你未允許定位；可以喺瀏覽器設定開啟。':'暫時無法取得位置。';if(btn)btn.disabled=false;},{enableHighAccuracy:false,timeout:10000,maximumAge:30000});
   }
   function compactTrafficWarning(){const w=$("#traffic-warning");if(!w||w.dataset.dz394)return;w.dataset.dz394='1';w.classList.add('dz394-warning-compact');w.addEventListener('click',()=>w.classList.toggle('expanded'));}
   document.addEventListener('click',e=>{const radius=e.target.closest?.('[data-dz-radius]');if(radius){e.preventDefault();e.stopImmediatePropagation();runNearby(Number(radius.dataset.dzRadius));return;}if(e.target.closest?.('#locateBtn')){e.preventDefault();e.stopImmediatePropagation();runNearby();return;}if(e.target.closest?.('#dz393Recenter')){e.preventDefault();focusRadius();return;}const card=e.target.closest?.('#nearbyResults .near-card');if(card&&state393.position){const meta=card.querySelector('.near-meta')?.textContent||'',name=meta.split('·')[0].trim();const match=state393.stops.find(s=>s.name===name)||state393.stops[0];if(match){state393.target=match;drawWalk();}}},true);
   ensureControls();compactTrafficWarning();
-  window.dzNearby393={version:'3.9.8',runNearby,renderNearbyMap,collectStops,startWatch};
+  window.dzNearby393={version:'3.10.2',runNearby,renderNearbyMap,collectStops,collectStopsSafe,startWatch};
 })();
