@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const BUILD = "4.0.2";
+  const BUILD = "4.0.3";
   const KEY = "daozhan.build";
   const RELOAD_KEY = "daozhan.build.reload";
   window.DZ_BUILD = BUILD;
@@ -13,7 +13,7 @@
     }
   }
 
-  async function clearOldRuntime(){
+  async function clearAllWorkersAndCaches(){
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -30,32 +30,28 @@
 
   async function ensureFreshBuild(){
     stampVersion();
-    let previous = null;
-    try { previous = localStorage.getItem(KEY); } catch {}
     const url = new URL(location.href);
     const urlBuild = url.searchParams.get('build');
-    const controllerUrl = navigator.serviceWorker?.controller?.scriptURL || '';
-    const controllerMatches = controllerUrl.includes(`v=${BUILD}`);
-    const needsReset = previous !== BUILD || urlBuild !== BUILD || !controllerMatches;
+    let previous = null;
+    try { previous = localStorage.getItem(KEY); } catch {}
 
-    if (!needsReset) return;
+    // v4.0.3 safe mode: remove Service Worker completely for now. Safari was
+    // restoring an older controlled page after a reload/crash, so no worker is
+    // allowed to own navigation until the new engine is stable.
+    await clearAllWorkersAndCaches();
     try { localStorage.setItem(KEY, BUILD); } catch {}
-    await clearOldRuntime();
 
-    try {
-      if ('serviceWorker' in navigator) {
-        await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(BUILD)}`, { updateViaCache:'none' });
-      }
-    } catch {}
-
+    const needsReload = previous !== BUILD || urlBuild !== BUILD;
     let alreadyReloaded = false;
     try { alreadyReloaded = sessionStorage.getItem(RELOAD_KEY) === BUILD && urlBuild === BUILD; } catch {}
-    if (!alreadyReloaded) {
+    if (needsReload && !alreadyReloaded) {
       try { sessionStorage.setItem(RELOAD_KEY, BUILD); } catch {}
       url.searchParams.set('build', BUILD);
       url.searchParams.set('_', Date.now().toString());
       location.replace(url.toString());
+      return;
     }
+    stampVersion();
   }
 
   if (document.readyState === 'loading') {
