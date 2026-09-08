@@ -108,9 +108,6 @@
     window.runJourneySearch = wrapped;
   }
 
-  // Nearby now owns its own staged flow: KMB/CTB first, then GMB + MTR.
-  // Do not start the heavy second phase on page boot. This keeps opening light
-  // and avoids loading the whole GMB dataset before the user asks for nearby or routing.
   document.addEventListener('dz:nearby-secondary-ready', () => {
     state3105.gmbStarted = true;
     state3105.gmbReady = true;
@@ -119,6 +116,8 @@
   });
 
   function boot() {
+    const v = document.querySelector('.app-version');
+    if (v) { v.textContent = 'v3.10.5'; v.setAttribute('aria-label','版本 v3.10.5'); }
     installJourneyGate();
     setTimeout(installJourneyGate, 0);
     setTimeout(installJourneyGate, 800);
