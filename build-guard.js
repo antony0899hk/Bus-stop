@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const BUILD = "4.0.1";
+  const BUILD = "4.0.2";
   const KEY = "daozhan.build";
   const RELOAD_KEY = "daozhan.build.reload";
   window.DZ_BUILD = BUILD;
@@ -23,7 +23,7 @@
     try {
       if (window.caches) {
         const keys = await caches.keys();
-        await Promise.all(keys.filter(k => !k.includes(`v${BUILD}`)).map(k => caches.delete(k)));
+        await Promise.all(keys.map(k => caches.delete(k)));
       }
     } catch {}
   }
@@ -32,20 +32,28 @@
     stampVersion();
     let previous = null;
     try { previous = localStorage.getItem(KEY); } catch {}
-    if (previous === BUILD) return;
+    const url = new URL(location.href);
+    const urlBuild = url.searchParams.get('build');
+    const controllerUrl = navigator.serviceWorker?.controller?.scriptURL || '';
+    const controllerMatches = controllerUrl.includes(`v=${BUILD}`);
+    const needsReset = previous !== BUILD || urlBuild !== BUILD || !controllerMatches;
+
+    if (!needsReset) return;
     try { localStorage.setItem(KEY, BUILD); } catch {}
     await clearOldRuntime();
+
     try {
       if ('serviceWorker' in navigator) {
         await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(BUILD)}`, { updateViaCache:'none' });
       }
     } catch {}
+
     let alreadyReloaded = false;
-    try { alreadyReloaded = sessionStorage.getItem(RELOAD_KEY) === BUILD; } catch {}
+    try { alreadyReloaded = sessionStorage.getItem(RELOAD_KEY) === BUILD && urlBuild === BUILD; } catch {}
     if (!alreadyReloaded) {
       try { sessionStorage.setItem(RELOAD_KEY, BUILD); } catch {}
-      const url = new URL(location.href);
       url.searchParams.set('build', BUILD);
+      url.searchParams.set('_', Date.now().toString());
       location.replace(url.toString());
     }
   }
