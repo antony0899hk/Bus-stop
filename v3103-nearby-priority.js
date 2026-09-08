@@ -2,8 +2,8 @@
   "use strict";
 
   const nativeFetch = window.fetch.bind(window);
-  const state3104 = {
-    version: "3.10.4",
+  const state3105 = {
+    version: "3.10.5",
     gmbStarted: false,
     gmbReady: false,
     mtrReady: false,
@@ -19,8 +19,8 @@
     readyResolve: null
   };
 
-  state3104.readyPromise = new Promise(resolve => { state3104.readyResolve = resolve; });
-  window.dzStageLoader3104 = state3104;
+  state3105.readyPromise = new Promise(resolve => { state3105.readyResolve = resolve; });
+  window.dzStageLoader3105 = state3105;
 
   function isLocalGmbShard(input) {
     try {
@@ -33,20 +33,19 @@
   }
 
   function pumpGmbQueue() {
-    if (!state3104.gmbStarted) return;
-    while (state3104.active < state3104.maxConcurrent && state3104.queued.length) {
-      const job = state3104.queued.shift();
-      state3104.active++;
+    if (!state3105.gmbStarted) return;
+    while (state3105.active < state3105.maxConcurrent && state3105.queued.length) {
+      const job = state3105.queued.shift();
+      state3105.active++;
       nativeFetch(job.input, job.init)
         .then(job.resolve, job.reject)
         .finally(() => {
-          state3104.active--;
-          state3104.completed++;
+          state3105.active--;
+          state3105.completed++;
           pumpGmbQueue();
-          if (state3104.gmbStarted && state3104.active === 0 && state3104.queued.length === 0 && state3104.seen >= 24) {
-            state3104.gmbReady = true;
+          if (state3105.gmbStarted && state3105.active === 0 && state3105.queued.length === 0 && state3105.seen >= 24) {
+            state3105.gmbReady = true;
             checkReady();
-            appendGmbNearby();
           }
         });
     }
@@ -54,88 +53,72 @@
 
   window.fetch = function stagedFetch(input, init) {
     if (!isLocalGmbShard(input)) return nativeFetch(input, init);
-    state3104.seen++;
+    state3105.seen++;
     return new Promise((resolve, reject) => {
-      state3104.queued.push({ input, init, resolve, reject });
+      state3105.queued.push({ input, init, resolve, reject });
       pumpGmbQueue();
     });
   };
 
   function startGmb() {
-    if (state3104.gmbStarted) return;
-    state3104.gmbStarted = true;
+    if (state3105.gmbStarted) return;
+    state3105.gmbStarted = true;
     pumpGmbQueue();
   }
 
   async function prepareMtr() {
-    if (state3104.mtrPromise) return state3104.mtrPromise;
-    state3104.mtrPromise = (async () => {
+    if (state3105.mtrPromise) return state3105.mtrPromise;
+    state3105.mtrPromise = (async () => {
       try {
         const fn = window.dzExtraTransit?.ensureMtrData;
         if (typeof fn === "function") await fn();
       } catch {}
-      state3104.mtrReady = true;
+      state3105.mtrReady = true;
       checkReady();
     })();
-    return state3104.mtrPromise;
+    return state3105.mtrPromise;
   }
 
   function checkReady() {
-    if (state3104.secondPhaseReady) return;
-    if (state3104.gmbReady && state3104.mtrReady) {
-      state3104.secondPhaseReady = true;
-      state3104.readyResolve?.();
-      const s = document.querySelector('#nearbyStatus');
-      if (s && window.dzNearbyMapState?.position) s.textContent = `巴士／小巴／MTR 資料已準備。`;
+    if (state3105.secondPhaseReady) return;
+    if (state3105.gmbReady && state3105.mtrReady) {
+      state3105.secondPhaseReady = true;
+      state3105.readyResolve?.();
     }
   }
 
-  async function appendGmbNearby() {
-    try {
-      const mapState = window.dzNearbyMapState;
-      const api = window.dzNearby393;
-      if (!mapState?.position || typeof api?.collectStopsSafe !== 'function' || typeof window.loadNearbyEtas !== 'function') return;
-      const all = await api.collectStopsSafe(mapState.position, mapState.radius || 100);
-      const gmb = all.filter(x => x.operator === 'GMB');
-      if (!gmb.length) return;
-      const key = x => `${x.operator}|${x.stop}`;
-      const have = new Set((mapState.stops || []).map(key));
-      for (const x of gmb) if (!have.has(key(x))) mapState.stops.push(x);
-      await window.loadNearbyEtas(gmb.map(x => ({operator:x.operator, stop:x.stop, stopObj:x.stopObj, distance:x.distance})));
-    } catch {}
-  }
-
   function startSecondPhase() {
-    const status = document.querySelector('#nearbyStatus');
-    if (status && window.dzNearbyMapState?.position) status.textContent = '巴士已顯示；背景載入小巴／MTR…';
     startGmb();
     prepareMtr();
   }
 
-  function scheduleSecondPhase() {
-    const go = () => startSecondPhase();
-    if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 700 });
-    else setTimeout(go, 450);
-  }
-
   function installJourneyGate() {
-    if (typeof window.runJourneySearch !== 'function' || window.runJourneySearch.__dz3104) return;
+    if (typeof window.runJourneySearch !== 'function' || window.runJourneySearch.__dz3105) return;
     const previous = window.runJourneySearch;
     const wrapped = async function() {
-      if (!state3104.secondPhaseReady) {
+      if (!state3105.secondPhaseReady) {
         const s = document.querySelector('#journeyStatus');
-        if (s) s.textContent = '正在等小巴及 MTR 資料完成，再開始完整搜尋…';
+        if (s) s.textContent = '先按需要準備附近小巴及 MTR，再開始完整搜尋…';
         startSecondPhase();
-        await state3104.readyPromise;
+        await state3105.readyPromise;
       }
       return previous.apply(this, arguments);
     };
-    wrapped.__dz3104 = true;
+    wrapped.__dz3105 = true;
     window.runJourneySearch = wrapped;
   }
 
+  // Nearby now owns its own staged flow: KMB/CTB first, then GMB + MTR.
+  // Do not start the heavy second phase on page boot. This keeps opening light
+  // and avoids loading the whole GMB dataset before the user asks for nearby or routing.
+  document.addEventListener('dz:nearby-secondary-ready', () => {
+    state3105.gmbStarted = true;
+    state3105.gmbReady = true;
+    state3105.mtrReady = true;
+    checkReady();
+  });
+
   function boot() {
-    scheduleSecondPhase();
     installJourneyGate();
     setTimeout(installJourneyGate, 0);
     setTimeout(installJourneyGate, 800);
@@ -144,10 +127,10 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
   else boot();
 
-  window.dzNearbyPriority3103 = {
-    version: '3.10.4',
+  window.dzNearbyPriority3105 = {
+    version: '3.10.5',
     startSecondPhase,
     prepareMtr,
-    whenReady: () => state3104.readyPromise
+    whenReady: () => state3105.readyPromise
   };
 })();
