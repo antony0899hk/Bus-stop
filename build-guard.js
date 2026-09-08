@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const BUILD = "4.0.3";
+  const BUILD = "4.0.4";
   const KEY = "daozhan.build";
   const RELOAD_KEY = "daozhan.build.reload";
   window.DZ_BUILD = BUILD;
@@ -34,10 +34,6 @@
     const urlBuild = url.searchParams.get('build');
     let previous = null;
     try { previous = localStorage.getItem(KEY); } catch {}
-
-    // v4.0.3 safe mode: remove Service Worker completely for now. Safari was
-    // restoring an older controlled page after a reload/crash, so no worker is
-    // allowed to own navigation until the new engine is stable.
     await clearAllWorkersAndCaches();
     try { localStorage.setItem(KEY, BUILD); } catch {}
 
@@ -54,9 +50,6 @@
     stampVersion();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureFreshBuild, { once:true });
-  } else {
-    ensureFreshBuild();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureFreshBuild, { once:true });
+  else ensureFreshBuild();
 })();
