@@ -214,39 +214,34 @@ function renderStopRows(stops, r, op) {
     const stopSeq = Number(rs.seq || rs.stop_seq || i + 1);
     const key = favKey(op, r.route, r.bound, r.serviceType, id, r.routeId, stopSeq);
     const fav = state.favorites.some(f => f.key === key);
-    return `<div class="stop-row" data-stop-id="${escapeHtml(id)}"><div class="stop-no">${i+1}</div><div><div class="stop-name">${escapeHtml(s?.name_tc || rs.name_tc || id)}</div><div class="etas"><span class="eta-chip">載入 ETA…</span></div></div><button class="fav-btn" data-fav-stop="${escapeHtml(id)}" data-stop-seq="${stopSeq}" aria-label="收藏此站">${fav ? "★" : "☆"}</button></div>`;
+    return `<div class="stop-row" data-stop-id="${escapeHtml(id)}"><div class="stop-no">${i+1}</div><div><div class="stop-name">${escapeHtml(s?.name_tc || rs.name_tc || id)}</div><div class="etas"><span class="eta-chip">載入 ETA…</span></div></div><div class="stop-actions"><div class="fare-cell" data-fare-stop="${escapeHtml(id)}" data-fare-seq="${stopSeq}">車費 —</div><button class="fav-btn ${fav ? "active" : ""}" data-fav-stop="${escapeHtml(id)}" data-fav-seq="${stopSeq}" aria-label="收藏">${fav ? "★" : "☆"}</button></div></div>`;
   }).join("");
-  $$("[data-fav-stop]").forEach(b => b.addEventListener("click", () => toggleFavorite(r, b.dataset.favStop, op, Number(b.dataset.stopSeq))));
+  $$("[data-fav-stop]").forEach(b => b.addEventListener("click", () => toggleFavorite(r, b.dataset.favStop, Number(b.dataset.favSeq))));
+  if (typeof fillRouteFares === "function") fillRouteFares(r, stops).catch(() => {});
 }
-function fillEta(stopId, etas) {
-  const row = $$(".stop-row").find(x => x.dataset.stopId === String(stopId));
-  if (!row) return;
-  const box = row.querySelector(".etas");
-  box.innerHTML = etas.length ? etas.map((e,i) => `<span class="eta-chip ${i === 0 ? "soon" : ""}">${i === 0 ? "下一班" : `第${i+1}班`} · ${escapeHtml(etaLabel(e.eta))}${e.rmk_tc ? ` · ${escapeHtml(e.rmk_tc)}` : ""}</span>`).join("") : '<span class="eta-chip">未有預報</span>';
+function fillEta(stopId, rows) {
+  const row = $(`.stop-row[data-stop-id="${CSS.escape(String(stopId))}"]`); if (!row) return;
+  row.querySelector(".etas").innerHTML = rows.length ? rows.map(e => `<span class="eta-chip ${validFutureEta(e.eta) ? "live" : ""}">${escapeHtml(etaLabel(e.eta))}${e.rmk_tc ? `<small>${escapeHtml(e.rmk_tc)}</small>` : ""}</span>`).join("") : '<span class="eta-chip">未有預報</span>';
 }
-async function parallel(items, n, fn) {
-  const q = [...items];
-  await Promise.all(Array.from({ length:Math.min(n, q.length) }, async () => { while (q.length) { const x = q.shift(); try { await fn(x); } catch {} } }));
-}
-function favKey(op, route, bound, serviceType, stopId, routeId = "", stopSeq = "") { return `${op}|${route}|${bound}|${serviceType}|${routeId}|${stopId}|${stopSeq}`; }
-function toggleFavorite(r, stopId, op, stopSeq) {
-  const s = stopMapFor(op).get(String(stopId));
-  const key = favKey(op, r.route, r.bound, r.serviceType, stopId, r.routeId, stopSeq);
+function favKey(op, route, bound, serviceType, stopId, routeId="", stopSeq="") { return [op,route,bound,serviceType,stopId,routeId,stopSeq].join("|"); }
+function toggleFavorite(r, stopId, stopSeq) {
+  const stopMap = stopMapFor(r.operator), stop = stopMap.get(String(stopId));
+  const key = favKey(r.operator, r.route, r.bound, r.serviceType, stopId, r.routeId, stopSeq);
   const idx = state.favorites.findIndex(f => f.key === key);
   if (idx >= 0) state.favorites.splice(idx, 1);
-  else state.favorites.push({ key, operator:op, route:r.route, bound:r.bound, serviceType:r.serviceType, routeId:r.routeId || "", routeSeq:r.routeSeq || "", stopSeq, stopId:String(stopId), stopName:s?.name_tc || String(stopId), origin:r.orig, destination:r.dest });
-  saveFavorites(); renderFavorites(); renderRouteDetail();
+  else state.favorites.unshift({ key, operator:r.operator, route:r.route, bound:r.bound, serviceType:r.serviceType, routeId:r.routeId || "", routeSeq:r.routeSeq || "", stopSeq, stopId:String(stopId), stopName:stop?.name_tc || "車站", origin:r.orig, destination:r.dest });
+  saveFavorites(); renderRouteDetail(); renderFavorites();
 }
 async function getFavoriteEtas(f) {
   let data = [];
   if (f.operator === "KMB") {
     const j = await getJSON(`${KMB_API}/eta/${encodeURIComponent(f.stopId)}/${encodeURIComponent(f.route)}/${encodeURIComponent(f.serviceType)}`, { ttl:20000 });
-    data = (j.data || []).filter(x => (!x.dir || x.dir === f.bound) && validFutureEta(x.eta));
+    data = (j.data || []).filter(x => (!f.bound || x.dir === f.bound) && (!f.stopSeq || Number(x.seq) === Number(f.stopSeq)) && validFutureEta(x.eta));
   } else if (f.operator === "CTB") {
     const j = await getJSON(`${CTB_API}/eta/ctb/${encodeURIComponent(f.stopId)}/${encodeURIComponent(f.route)}`, { ttl:20000 });
-    data = (j.data || []).filter(x => (!x.dir || x.dir === f.bound) && validFutureEta(x.eta));
+    data = (j.data || []).filter(x => (!f.bound || !x.dir || String(x.dir).toLowerCase() === String(f.bound).toLowerCase()) && validFutureEta(x.eta));
   } else {
-    const j = await getJSON(`${GMB_API}/eta/route-stop/${encodeURIComponent(f.routeId)}/${encodeURIComponent(f.routeSeq || f.serviceType)}/${encodeURIComponent(f.stopSeq)}`, { ttl:20000 });
+    const j = await getJSON(`${GMB_API}/eta/route-stop/${encodeURIComponent(f.routeId)}/${encodeURIComponent(f.routeSeq)}/${encodeURIComponent(f.stopSeq)}`, { ttl:20000 });
     data = j.data?.enabled === false ? [] : (j.data?.eta || []).map(e => ({ eta:e.timestamp, rmk_tc:e.remarks_tc || "" })).filter(x => validFutureEta(x.eta));
   }
   return data.sort((a,b) => new Date(a.eta) - new Date(b.eta)).slice(0,3);
@@ -373,7 +368,7 @@ async function loadTrafficWarning() {
     const w = state.warnings[0];
     if (w) {
       const mins = Math.max(0, Math.floor((Date.now() - new Date(w.first).getTime()) / 60000));
-      $("#warning-text").innerHTML = `<strong>${escapeHtml(w.location || w.heading)}${w.direction ? `｜${escapeHtml(w.direction)}方向` : ""}${w.detail ? ` ${escapeHtml(w.detail)}` : ""}</strong><p>${escapeHtml(w.content)}</p>`;
+      $("#warning-text").innerHTML = `<strong>${escapeHtml(w.location || w.heading)}${w.direction ? `｜${escapeHtml(w.direction)}方向` : ""}${w.detail ? ` ${escapeHtml(w.detail)}${escapeHtml(w.detail)}` : ""}</strong><p>${escapeHtml(w.content)}</p>`;
       $("#warning-meta").innerHTML = `<div>運輸署發布：${formatTime(w.first)}　最新更新：${formatTime(w.updated)}</div><div>已發布／持續 ${mins} 分鐘　狀態：${escapeHtml(w.status || "已發布")}</div><div>資料來源：運輸署特別交通消息</div>`;
       $("#traffic-warning").classList.remove("hidden"); renderFavorites();
     }
@@ -392,5 +387,6 @@ $("#nearbyCollapseTop").addEventListener("click", toggleNearby);
 $$("[data-near-filter]").forEach(b => b.addEventListener("click", () => { state.nearbyFilter = b.dataset.nearFilter; state.nearbyExpanded = false; $$("[data-near-filter]").forEach(x => x.classList.toggle("active", x === b)); renderNearby(); }));
 $$("[data-search-filter]").forEach(b => b.addEventListener("click", () => { state.searchFilter = b.dataset.searchFilter; $$("[data-search-filter]").forEach(x => x.classList.toggle("active", x === b)); if ($("#routeSearch").value.trim()) renderSearch(); }));
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// Service worker registration is owned by build-guard.js.
+// Do not register an unversioned sw.js here: Safari can otherwise re-attach a stale worker after the build guard upgrades it.
 bootstrap();
