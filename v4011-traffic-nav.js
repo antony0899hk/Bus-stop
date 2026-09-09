@@ -1,6 +1,7 @@
 (() => {
   "use strict";
-  const VERSION = "4.0.13";
+  const VERSION = "4.0.14";
+  const LOCAL_URL = "./traffic.json";
   const TD_URL = "https://www.td.gov.hk/tc/special_news/trafficnews.xml";
   let index = 0;
   let loading = false;
@@ -40,7 +41,7 @@
     const text = document.querySelector('#warning-text');
     const meta = document.querySelector('#warning-meta');
     if (text) text.innerHTML = `<strong>${esc(w.location || w.heading || '特別交通消息')}${w.direction ? `｜${esc(w.direction)}方向` : ''}${w.detail ? ` ${esc(w.detail)}` : ''}</strong><p>${esc(w.content || '')}</p>`;
-    if (meta) meta.innerHTML = `<div>運輸署發布：${fmt(w.first)}　最新更新：${fmt(w.updated)}</div><div>已發布／持續 ${mins} 分鐘　狀態：${esc(w.status || '最新情況')}</div><div>資料來源：運輸署特別交通消息</div>`;
+    if (meta) meta.innerHTML = `<div>運輸署發布：${fmt(w.first || w.updated)}　最新更新：${fmt(w.updated)}</div><div>已發布／持續 ${mins} 分鐘　狀態：${esc(w.status || '最新情況')}</div><div>資料來源：運輸署特別交通消息</div>`;
     box.classList.remove('hidden');
     const nav = ensureNav();
     if (nav) {
@@ -50,55 +51,66 @@
     }
   }
 
+  function normalizeRows(rows) {
+    const cache = (() => { try { return JSON.parse(localStorage.getItem('daozhan_warning_first_seen') || '{}'); } catch { return {}; } })();
+    const out = (Array.isArray(rows) ? rows : []).map((w,i) => {
+      const id = w.id || `td-${i}`;
+      const updated = w.updated || new Date().toISOString();
+      if (!cache[id]) cache[id] = updated;
+      return {...w, id, first:w.first || cache[id], updated};
+    }).filter(w => w.heading || w.location || w.content)
+      .filter(w => !/解封|恢復正常|重開|回復正常|已恢復正常/.test(`${w.status||''}${w.content||''}`));
+    try { localStorage.setItem('daozhan_warning_first_seen', JSON.stringify(cache)); } catch {}
+    return out;
+  }
+
   function parseTraffic(text) {
     const xml = new DOMParser().parseFromString(text, 'text/xml');
     if (xml.querySelector('parsererror')) throw new Error('TD XML parse error');
-    // TD second-generation feed uses <list>; older feed used <message>. Support both.
-    let nodes = [...xml.querySelectorAll('list')];
-    if (!nodes.length) nodes = [...xml.querySelectorAll('message')];
-    const cache = (() => { try { return JSON.parse(localStorage.getItem('daozhan_warning_first_seen') || '{}'); } catch { return {}; } })();
-    const rows = nodes.map((n, i) => {
-      const id = val(n,'INCIDENT_NUMBER') || val(n,'ID') || val(n,'msgID') || `td-${i}`;
-      const updated = val(n,'ANNOUNCEMENT_DATE') || val(n,'ReferenceDate') || new Date().toISOString();
-      if (!cache[id]) cache[id] = updated;
-      return {
-        id,
-        heading: val(n,'INCIDENT_HEADING_CN') || val(n,'ChinShort'),
-        detail: val(n,'INCIDENT_DETAIL_CN'),
-        location: val(n,'LOCATION_CN'),
-        direction: val(n,'DIRECTION_CN'),
-        first: cache[id], updated,
-        status: val(n,'INCIDENT_STATUS_CN') || val(n,'CurrentStatus') || '最新情況',
-        content: val(n,'CONTENT_CN') || val(n,'ChinText') || val(n,'ChinShort')
-      };
-    }).filter(w => (w.heading || w.location || w.content));
-    try { localStorage.setItem('daozhan_warning_first_seen', JSON.stringify(cache)); } catch {}
-    // Feed itself is the live Special Traffic News feed. Only suppress explicitly cleared/reopened items.
-    return rows.filter(w => !/解封|取消|恢復正常|重開|回復正常/.test(`${w.status}${w.content}`));
+    const nodes = [...xml.querySelectorAll('message')];
+    return normalizeRows(nodes.map((n, i) => ({
+      id: val(n,'INCIDENT_NUMBER') || val(n,'ID') || val(n,'msgID') || `td-${i}`,
+      heading: val(n,'INCIDENT_HEADING_CN') || val(n,'ChinShort'),
+      detail: val(n,'INCIDENT_DETAIL_CN'),
+      location: val(n,'LOCATION_CN'),
+      direction: val(n,'DIRECTION_CN'),
+      updated: val(n,'ANNOUNCEMENT_DATE') || val(n,'ReferenceDate') || new Date().toISOString(),
+      status: val(n,'INCIDENT_STATUS_CN') || val(n,'CurrentStatus') || '最新情況',
+      content: val(n,'CONTENT_CN') || val(n,'ChinText') || val(n,'ChinShort')
+    })));
+  }
+
+  async function loadLocal() {
+    const res = await fetch(`${LOCAL_URL}?_=${Date.now()}`, {cache:'no-store'});
+    if (!res.ok) throw new Error(`local traffic HTTP ${res.status}`);
+    const j = await res.json();
+    return normalizeRows(j.warnings || []);
+  }
+
+  async function loadDirect() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(`${TD_URL}?_=${Date.now()}`, {cache:'no-store',signal:controller.signal,headers:{Accept:'application/xml,text/xml,*/*'}});
+      if (!res.ok) throw new Error(`TD HTTP ${res.status}`);
+      return parseTraffic(await res.text());
+    } finally { clearTimeout(timer); }
   }
 
   async function loadNow() {
     if (loading) return;
     loading = true;
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
-      let res;
-      try { res = await fetch(`${TD_URL}?_=${Date.now()}`, { cache:'no-store', signal:controller.signal, headers:{Accept:'application/xml,text/xml,*/*'} }); }
-      finally { clearTimeout(timer); }
-      if (!res.ok) throw new Error(`TD HTTP ${res.status}`);
-      const rows = parseTraffic(await res.text());
-      try { state.warnings = rows; } catch {}
-      index = 0;
-      renderCurrent();
-    } catch (err) {
-      // As a compatibility fallback, use app.js loader if the browser blocks the direct feed.
-      try {
-        if (typeof loadTrafficWarning === 'function') {
-          await loadTrafficWarning();
-          renderCurrent();
-        }
-      } catch {}
+      let rows = [];
+      try { rows = await loadLocal(); }
+      catch {
+        try { rows = await loadDirect(); } catch {}
+      }
+      if (rows.length) {
+        try { state.warnings = rows; } catch {}
+        index = 0;
+        renderCurrent();
+      }
     } finally { loading = false; }
   }
 
