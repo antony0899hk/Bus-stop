@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION='4.0.16';
+  const VERSION='4.0.18';
   const $=s=>document.querySelector(s);
   let map=null, layer=null, userMarker=null;
 
