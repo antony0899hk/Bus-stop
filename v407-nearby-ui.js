@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION='4.0.18';
+  const VERSION='4.0.19';
   const $=s=>document.querySelector(s);
   let map=null, layer=null, userMarker=null;
 
@@ -29,12 +29,36 @@
   function ensureHost(){let host=$('#dz407Map');if(host)return host;host=document.createElement('section');host.id='dz407Map';host.className='dz407-map hidden';host.innerHTML='<div id="dz407MapCanvas"></div>';const sec=$('#nearbySection');if(sec)sec.appendChild(host);return host;}
   async function showMap(){const host=ensureHost(),btn=$('#dz407MapBtn');if(!host)return;if(!host.classList.contains('hidden')){host.classList.add('hidden');if(btn)btn.textContent='地圖';return;}if(btn){btn.disabled=true;btn.textContent='地圖載入中…';}try{const L=await ensureLeaflet();const pos=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),reject,{enableHighAccuracy:true,maximumAge:8000,timeout:12000}));host.classList.remove('hidden');if(!map){map=L.map($('#dz407MapCanvas'),{zoomControl:true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);layer=L.layerGroup().addTo(map);}else layer.clearLayers();if(userMarker)map.removeLayer(userMarker);userMarker=L.marker([pos.lat,pos.lon]).addTo(map).bindTooltip('你的位置');const pts=[[pos.lat,pos.lon]];for(const r of (state.nearby||[]).slice(0,24)){const c=stopCoords(r);if(!c)continue;pts.push([c.lat,c.lon]);L.marker([c.lat,c.lon]).addTo(layer).bindTooltip(`${r.route} · ${c.name}`);}if(pts.length>1)map.fitBounds(pts,{padding:[20,20],maxZoom:18});else map.setView([pos.lat,pos.lon],17);setTimeout(()=>map.invalidateSize(),80);if(btn)btn.textContent='收起地圖';}catch{if(btn)btn.textContent='地圖';}finally{if(btn)btn.disabled=false;}}
 
-  window.addEventListener('click',e=>{const r=e.target.closest?.('[data-dz-radius]');if(r){updateActive(Number(r.dataset.dzRadius)||100);return;}if(e.target.closest?.('#dz407MapBtn')){e.preventDefault();e.stopImmediatePropagation();showMap();}},true);
+  async function openNearbyRoute(card){
+    const route=card?.querySelector('.near-route')?.textContent?.trim();
+    if(!route)return;
+    const rows=(state.nearby||[]).filter(x=>String(x.route).trim()===route);
+    const op=rows[0]?.operator;
+    if(!op||op==='MTR'||op==='NLB')return;
+    if(op==='GMB' && !state.gmbRoutes?.length){
+      card.classList.add('dz407-loading');
+      try{await window.dzNearbyPriority3105?.loadGmbRoutesLite?.();}finally{card.classList.remove('dz407-loading');}
+    }
+    const candidates=normalizedRoutes().filter(r=>r.operator===op&&String(r.route).trim().toUpperCase()===route.toUpperCase());
+    if(!candidates.length){
+      $('#routeSearch').value=route; state.searchFilter=op; renderSearch();
+      document.querySelector('#resultsSection')?.scrollIntoView({behavior:'smooth',block:'start'});
+      return;
+    }
+    const dest=String(rows[0]?.dest||'').trim();
+    const chosen=candidates.find(r=>dest&&(String(r.dest||'').includes(dest)||dest.includes(String(r.dest||''))))||candidates[0];
+    await openRoute(chosen);
+    document.querySelector('#routeSection')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  window.addEventListener('click',e=>{const r=e.target.closest?.('[data-dz-radius]');if(r){updateActive(Number(r.dataset.dzRadius)||100);return;}if(e.target.closest?.('#dz407MapBtn')){e.preventDefault();e.stopImmediatePropagation();showMap();return;}const card=e.target.closest?.('#nearbyResults .near-card');if(card){e.preventDefault();e.stopImmediatePropagation();openNearbyRoute(card);}},true);
   function syncFromStatus(){const s=$('#nearbyStatus')?.textContent||'';const m=s.match(/\b(100|200|400)m\b/);if(m)updateActive(Number(m[1]));}
   const status=$('#nearbyStatus');if(status){new MutationObserver(syncFromStatus).observe(status,{childList:true,subtree:true,characterData:true});}
 
-  const style=document.createElement('style');style.textContent='.nearby-panel{align-items:stretch}.dz407-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dz407-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dz407-row{display:flex;gap:8px}.dz407-row button{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:999px;padding:9px 14px;font-weight:750}.dz407-radius button.active{background:var(--text);color:var(--bg)}#dz407MapBtn{min-width:74px}.dz407-map{margin-top:12px;border-radius:16px;overflow:hidden;border:1px solid var(--border)}#dz407MapCanvas{height:280px;width:100%}@media(max-width:520px){.nearby-panel{display:block}.dz407-actions{margin-top:12px}.dz407-controls{width:100%;justify-content:space-between}.dz407-radius{flex:1}.dz407-radius button{flex:1}.dz407-actions>#locateBtn{width:100%}}';document.head.appendChild(style);
+  const style=document.createElement('style');style.textContent='.nearby-panel{align-items:stretch}.dz407-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dz407-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dz407-row{display:flex;gap:8px}.dz407-row button{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:999px;padding:9px 14px;font-weight:750}.dz407-radius button.active{background:var(--text);color:var(--bg)}#dz407MapBtn{min-width:74px}.dz407-map{margin-top:12px;border-radius:16px;overflow:hidden;border:1px solid var(--border)}#dz407MapCanvas{height:280px;width:100%}#nearbyResults .near-card{cursor:pointer;-webkit-tap-highlight-color:transparent}#nearbyResults .near-card:active{transform:scale(.995)}#nearbyResults .near-card.dz407-loading{opacity:.6;pointer-events:none}@media(max-width:520px){.nearby-panel{display:block}.dz407-actions{margin-top:12px}.dz407-controls{width:100%;justify-content:space-between}.dz407-radius{flex:1}.dz407-radius button{flex:1}.dz407-actions>#locateBtn{width:100%}}';document.head.appendChild(style);
   installControls();
 
-  // Nearby fare enrichment is intentionally disabled in Safe Mode.\n  // fare.js still handles route-detail fares without building the large legacy nearby index.\n  window.dzNearbyUI407={version:VERSION,showMap,updateActive};
+  // Nearby fare enrichment is intentionally disabled in Safe Mode.
+  // fare.js still handles route-detail fares without building the large legacy nearby index.
+  window.dzNearbyUI407={version:VERSION,showMap,updateActive,openNearbyRoute};
 })();
