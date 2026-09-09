@@ -86,14 +86,12 @@ async function bootstrap() {
     getJSON("./kmb-routes.json", { ttl: 3600000 }).then(j => state.kmbRoutes = j.data || []).catch(() => errors.push("九巴路線")),
     getJSON("./kmb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.kmbStops.set(String(s.stop), s))).catch(() => errors.push("九巴站點")),
     getJSON("./ctb-routes.json", { ttl: 3600000 }).then(j => state.ctbRoutes = j.data || []).catch(() => errors.push("城巴路線")),
-    getJSON("./ctb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.ctbStops.set(String(s.stop), s))).catch(() => errors.push("城巴站點")),
-    Promise.all(Array.from({length:GMB_ROUTE_PARTS}, (_,i) => getJSON(`./gmb-routes-${i}.json`, { ttl:3600000 }))).then(parts => state.gmbRoutes = parts.flatMap(j => j.data || [])).catch(() => errors.push("小巴路線")),
-    Promise.all(Array.from({length:GMB_STOP_PARTS}, (_,i) => getJSON(`./gmb-stops-${i}.json`, { ttl:3600000 }))).then(parts => parts.flatMap(j => j.data || []).forEach(s => state.gmbStops.set(String(s.stop), s))).catch(() => errors.push("小巴站點"))
+    getJSON("./ctb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.ctbStops.set(String(s.stop), s))).catch(() => errors.push("城巴站點"))
   ];
   await Promise.allSettled(jobs);
   const total = normalizedRoutes().length;
   $("#status").textContent = total
-    ? `已載入 ${total} 個路線方向（九巴＋城巴＋小巴）。`
+    ? `已載入 ${total} 個路線方向（九巴＋城巴；小巴按需要載入）。`
     : "暫時未能載入路線資料。";
   if (errors.length) $("#status").textContent += ` 未能載入：${errors.join("、")}；其他營辦商仍可使用。`;
   renderFavorites();
