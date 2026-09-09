@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "4.0.10";
+  const VERSION = "4.0.16";
   const CELL = 0.002;
   const grids = {KMB:null,CTB:null,GMB:null};
   const waits = {KMB:null,CTB:null,GMB:null};
@@ -35,17 +35,51 @@
       else{const j=await getJSON(`${GMB_API}/eta/stop/${encodeURIComponent(s.id)}`,{ttl:15000,retries:0});for(const occ of j.data||[]){if(occ.enabled===false)continue;const meta=state.gmbRoutes.find(r=>String(r.routeId)===String(occ.route_id)&&Number(r.routeSeq)===Number(occ.route_seq));for(const e of occ.eta||[])if(validFutureEta(e.timestamp))rows.push({operator:'GMB',route:meta?.route||'小巴',dest:meta?.dest||'',eta:e.timestamp,remark:e.remarks_tc||'',distance:s.distance,stopId:s.id,stopName:s.name});}}
     }catch{}return rows;
   }
+  function normStationName(v=''){return String(v).replace(/港鐵/g,'').replace(/站$/,'').replace(/\s+/g,'').trim();}
+  async function nearestMtrRow(pos,maxDistance=1400){
+    try{
+      const extra=window.dzExtraTransit;
+      if(!extra?.ensureMtrData)return null;
+      await Promise.race([extra.ensureMtrData(),sleep(8000)]);
+      const stations=[...(extra.mtrStations?.values?.()||[])].filter(s=>s?.name_tc);
+      if(!stations.length)return null;
+      const stationByName=new Map(stations.map(s=>[normStationName(s.name_tc),s]));
+      let best=null,n=0;
+      for(const op of ['KMB','CTB']){
+        const m=mapFor(op);if(!m?.size)continue;
+        for(const [id,s] of m){
+          const c=coords(s);if(!c)continue;
+          const d=distanceMeters(pos.lat,pos.lon,c.lat,c.lon);if(!Number.isFinite(d)||d>maxDistance)continue;
+          const name=normStationName(stopName(s));
+          if(!name)continue;
+          for(const [q,station] of stationByName){
+            if(q.length<2||!name.includes(q))continue;
+            if(!best||d<best.distance)best={station,distance:d,lat:c.lat,lon:c.lon,stopId:String(id)};
+          }
+          if((++n%700)===0)await sleep(0);
+        }
+      }
+      if(!best)return null;
+      const walkMinutes=Math.max(1,Math.ceil(best.distance/75));
+      return {operator:'MTR',route:best.station.name_tc||'港鐵站',dest:'步行前往港鐵站',eta:new Date(Date.now()+walkMinutes*60000).toISOString(),distance:best.distance,stopId:best.station.code||best.stopId,stopName:best.station.name_tc||'港鐵站',walkMinutes,walking:true,mtrStationCode:best.station.code||''};
+    }catch{return null;}
+  }
   function mergeRows(rows){const seen=new Set();return rows.sort((a,b)=>new Date(a.eta)-new Date(b.eta)).filter(x=>{const k=`${x.operator}|${String(x.route).toUpperCase()}`;if(seen.has(k))return false;seen.add(k);return true;});}
   async function search(radius){
     selectedRadius=[100,200,400].includes(Number(radius))?Number(radius):100;const st=$('#nearbyStatus'),btn=$('#locateBtn'),sec=$('#nearbySection'),count=$('#nearbyCount');if(st)st.textContent=`正在取得位置並搜尋 ${selectedRadius}m…`;if(btn)btn.disabled=true;
     if(!navigator.geolocation){if(st)st.textContent='此瀏覽器不支援定位。';if(btn)btn.disabled=false;return;}
-    navigator.geolocation.getCurrentPosition(async p=>{try{const pos={lat:p.coords.latitude,lon:p.coords.longitude};if(st)st.textContent='定位成功，搜尋附近巴士站…';const primary=await nearbyStops(pos,selectedRadius,['KMB','CTB']);const primaryRows=[];await Promise.all(primary.map(async s=>primaryRows.push(...await etaRows(s))));state.nearby=mergeRows(primaryRows);if(sec)sec.classList.remove('hidden');if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}if(st)st.textContent=primary.length?`已找到 ${primary.length} 個附近巴士站；小巴背景補上。`:`${selectedRadius}m 內暫時未找到九巴／城巴站。`;if(btn)btn.disabled=false;
-      try{window.dzNearbyPriority3105?.startSecondPhase?.();await Promise.race([window.dzNearbyPriority3105?.whenReady?.()||Promise.resolve(),sleep(10000)]);grids.GMB=null;const gmb=await nearbyStops(pos,selectedRadius,['GMB']),gmbRows=[];await Promise.all(gmb.map(async s=>gmbRows.push(...await etaRows(s))));state.nearby=mergeRows([...state.nearby,...gmbRows]);try{renderNearby();}catch{}if(st)st.textContent=`完成 ${selectedRadius}m 附近搜尋：${primary.length+gmb.length} 個附近站。`;}catch{}
-      // Spatial grids are only a temporary accelerator. Drop them after rendering so
-      // route search does not inherit another full set of stop references on iPhone Safari.
+    navigator.geolocation.getCurrentPosition(async p=>{try{const pos={lat:p.coords.latitude,lon:p.coords.longitude};if(st)st.textContent='定位成功，搜尋附近巴士站…';const primary=await nearbyStops(pos,selectedRadius,['KMB','CTB']);const primaryRows=[];await Promise.all(primary.map(async s=>primaryRows.push(...await etaRows(s))));state.nearby=mergeRows(primaryRows);if(sec)sec.classList.remove('hidden');if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}if(st)st.textContent=primary.length?`已找到 ${primary.length} 個附近巴士站；小巴及港鐵背景補上。`:`${selectedRadius}m 內暫時未找到九巴／城巴站。`;if(btn)btn.disabled=false;
+      try{
+        window.dzNearbyPriority3105?.startSecondPhase?.();
+        const [_,mtrRow]=await Promise.all([Promise.race([window.dzNearbyPriority3105?.whenReady?.()||Promise.resolve(),sleep(10000)]),nearestMtrRow(pos,1400)]);
+        grids.GMB=null;const gmb=await nearbyStops(pos,selectedRadius,['GMB']),gmbRows=[];await Promise.all(gmb.map(async s=>gmbRows.push(...await etaRows(s))));
+        state.nearby=mergeRows([...state.nearby,...gmbRows,...(mtrRow?[mtrRow]:[])]);try{renderNearby();}catch{}
+        const mtrText=mtrRow?`；最近港鐵 ${mtrRow.stopName} 約 ${mtrRow.walkMinutes} 分鐘步行`:'';
+        if(st)st.textContent=`完成 ${selectedRadius}m 附近搜尋：${primary.length+gmb.length} 個附近站${mtrText}。`;
+      }catch{}
       setTimeout(releaseGrids,0);
     }catch(e){releaseGrids();if(st)st.textContent=`附近搜尋失敗：${e?.message||'未知錯誤'}`;if(btn)btn.disabled=false;}},err=>{releaseGrids();if(st)st.textContent=err.code===1?'你未允許定位。':'暫時無法取得位置。';if(btn)btn.disabled=false;},{enableHighAccuracy:true,maximumAge:8000,timeout:15000});
   }
   window.addEventListener('click',e=>{const rb=e.target.closest?.('[data-dz-radius]');if(rb){e.preventDefault();e.stopImmediatePropagation();selectedRadius=Number(rb.dataset.dzRadius)||100;search(selectedRadius);return;}const b=e.target.closest?.('#locateBtn');if(b){e.preventDefault();e.stopImmediatePropagation();search(selectedRadius);}},true);
-  const badge=document.querySelector('.app-version');if(badge){badge.textContent=`v${VERSION}`;badge.setAttribute('aria-label',`版本 v${VERSION}`);}window.dzNearby404={version:VERSION,search,nearbyStops,releaseGrids};
+  const badge=document.querySelector('.app-version');if(badge){badge.textContent=`v${VERSION}`;badge.setAttribute('aria-label',`版本 v${VERSION}`);}window.dzNearby404={version:VERSION,search,nearbyStops,releaseGrids,nearestMtrRow};
 })();
