@@ -1,10 +1,11 @@
 (() => {
   "use strict";
-  const VERSION = "4.0.14";
+  const VERSION = "4.0.15";
   const LOCAL_URL = "./traffic.json";
   const TD_URL = "https://www.td.gov.hk/tc/special_news/trafficnews.xml";
   let index = 0;
   let loading = false;
+  let rowsCache = [];
 
   function esc(v='') { return typeof escapeHtml === 'function' ? escapeHtml(v) : String(v); }
   function fmt(v) { try { return v ? new Intl.DateTimeFormat('zh-HK',{hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(v)) : '—'; } catch { return v || '—'; } }
@@ -25,6 +26,9 @@
   }
 
   function currentList() {
+    // Keep an independent snapshot. app.js may still update state.warnings later
+    // when its slower bootstrap finishes; that must not erase this navigator.
+    if (rowsCache.length) return rowsCache;
     try { return Array.isArray(state.warnings) ? state.warnings : []; } catch { return []; }
   }
 
@@ -35,7 +39,7 @@
     if (!list.length) { box.classList.add('hidden'); return; }
     if (index < 0) index = list.length - 1;
     if (index >= list.length) index = 0;
-    const w = list[index];
+    const w = list[index] || list[0];
     const firstMs = new Date(w.first || w.updated || Date.now()).getTime();
     const mins = Number.isFinite(firstMs) ? Math.max(0, Math.floor((Date.now() - firstMs) / 60000)) : 0;
     const text = document.querySelector('#warning-text');
@@ -67,16 +71,17 @@
   function parseTraffic(text) {
     const xml = new DOMParser().parseFromString(text, 'text/xml');
     if (xml.querySelector('parsererror')) throw new Error('TD XML parse error');
-    const nodes = [...xml.querySelectorAll('message')];
+    let nodes = [...xml.querySelectorAll('message')];
+    if (!nodes.length) nodes = [...xml.querySelectorAll('list')];
     return normalizeRows(nodes.map((n, i) => ({
-      id: val(n,'INCIDENT_NUMBER') || val(n,'ID') || val(n,'msgID') || `td-${i}`,
-      heading: val(n,'INCIDENT_HEADING_CN') || val(n,'ChinShort'),
-      detail: val(n,'INCIDENT_DETAIL_CN'),
-      location: val(n,'LOCATION_CN'),
-      direction: val(n,'DIRECTION_CN'),
-      updated: val(n,'ANNOUNCEMENT_DATE') || val(n,'ReferenceDate') || new Date().toISOString(),
-      status: val(n,'INCIDENT_STATUS_CN') || val(n,'CurrentStatus') || '最新情況',
-      content: val(n,'CONTENT_CN') || val(n,'ChinText') || val(n,'ChinShort')
+      id: val(n,'INCIDENT_NUMBER') || val(n,'ID') || val(n,'msgID') || val(n,'MESSAGE_ID') || `td-${i}`,
+      heading: val(n,'INCIDENT_HEADING_CN') || val(n,'ChinShort') || val(n,'TITLE_TC'),
+      detail: val(n,'INCIDENT_DETAIL_CN') || val(n,'DETAIL_TC'),
+      location: val(n,'LOCATION_CN') || val(n,'LOCATION_TC'),
+      direction: val(n,'DIRECTION_CN') || val(n,'DIRECTION_TC'),
+      updated: val(n,'ANNOUNCEMENT_DATE') || val(n,'ReferenceDate') || val(n,'UPDATE_TIME') || new Date().toISOString(),
+      status: val(n,'INCIDENT_STATUS_CN') || val(n,'CurrentStatus') || val(n,'STATUS_TC') || '最新情況',
+      content: val(n,'CONTENT_CN') || val(n,'ChinText') || val(n,'ChinShort') || val(n,'CONTENT_TC')
     })));
   }
 
@@ -103,21 +108,26 @@
     try {
       let rows = [];
       try { rows = await loadLocal(); }
-      catch {
-        try { rows = await loadDirect(); } catch {}
-      }
+      catch { try { rows = await loadDirect(); } catch {} }
       if (rows.length) {
-        try { state.warnings = rows; } catch {}
-        index = 0;
+        rowsCache = rows;
+        try { state.warnings = rows.slice(); } catch {}
+        if (index >= rowsCache.length) index = 0;
         renderCurrent();
       }
     } finally { loading = false; }
   }
 
   document.addEventListener('click', e => {
-    if (e.target.closest?.('[data-traffic-prev]')) { index--; renderCurrent(); }
-    if (e.target.closest?.('[data-traffic-next]')) { index++; renderCurrent(); }
-  });
+    const prev = e.target.closest?.('[data-traffic-prev]');
+    const next = e.target.closest?.('[data-traffic-next]');
+    if (!prev && !next) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (prev) index--;
+    if (next) index++;
+    renderCurrent();
+  }, true);
 
   const style = document.createElement('style');
   style.textContent = '.dz4011-traffic-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)}.dz4011-traffic-nav button{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:inherit;border-radius:999px;padding:8px 12px;font-weight:700}.dz4011-traffic-nav span{font-size:.9rem;opacity:.8}.dz4011-traffic-nav.hidden{display:none}';
@@ -125,5 +135,5 @@
 
   setTimeout(loadNow, 0);
   setInterval(loadNow, 5 * 60 * 1000);
-  window.dzTrafficNav4011 = { version: VERSION, renderCurrent, loadNow };
+  window.dzTrafficNav4011 = { version: VERSION, renderCurrent, loadNow, getRows:()=>rowsCache.slice() };
 })();
