@@ -36,6 +36,5 @@
   const style=document.createElement('style');style.textContent='.nearby-panel{align-items:stretch}.dz407-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dz407-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dz407-row{display:flex;gap:8px}.dz407-row button{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:999px;padding:9px 14px;font-weight:750}.dz407-radius button.active{background:var(--text);color:var(--bg)}#dz407MapBtn{min-width:74px}.dz407-map{margin-top:12px;border-radius:16px;overflow:hidden;border:1px solid var(--border)}#dz407MapCanvas{height:280px;width:100%}@media(max-width:520px){.nearby-panel{display:block}.dz407-actions{margin-top:12px}.dz407-controls{width:100%;justify-content:space-between}.dz407-radius{flex:1}.dz407-radius button{flex:1}.dz407-actions>#locateBtn{width:100%}}';document.head.appendChild(style);
   installControls();
 
-  if(!document.querySelector('script[data-dz409]')){const s=document.createElement('script');s.src=`v409-route-detail-fare.js?v=${VERSION}`;s.dataset.dz409='1';document.body.appendChild(s);}
-  const badge=$('.app-version');if(badge){badge.textContent=`v${VERSION}`;badge.setAttribute('aria-label',`版本 v${VERSION}`);}window.dzNearbyUI407={version:VERSION,showMap,updateActive};
+  // Nearby fare enrichment is intentionally disabled in Safe Mode.\n  // fare.js still handles route-detail fares without building the large legacy nearby index.\n  window.dzNearbyUI407={version:VERSION,showMap,updateActive};
 })();
