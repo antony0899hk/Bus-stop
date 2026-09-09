@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "4.0.16";
+  const VERSION = "4.0.17";
   const CELL = 0.002;
   const grids = {KMB:null,CTB:null,GMB:null};
   const waits = {KMB:null,CTB:null,GMB:null};
@@ -68,14 +68,16 @@
   async function search(radius){
     selectedRadius=[100,200,400].includes(Number(radius))?Number(radius):100;const st=$('#nearbyStatus'),btn=$('#locateBtn'),sec=$('#nearbySection'),count=$('#nearbyCount');if(st)st.textContent=`正在取得位置並搜尋 ${selectedRadius}m…`;if(btn)btn.disabled=true;
     if(!navigator.geolocation){if(st)st.textContent='此瀏覽器不支援定位。';if(btn)btn.disabled=false;return;}
-    navigator.geolocation.getCurrentPosition(async p=>{try{const pos={lat:p.coords.latitude,lon:p.coords.longitude};if(st)st.textContent='定位成功，搜尋附近巴士站…';const primary=await nearbyStops(pos,selectedRadius,['KMB','CTB']);const primaryRows=[];await Promise.all(primary.map(async s=>primaryRows.push(...await etaRows(s))));state.nearby=mergeRows(primaryRows);if(sec)sec.classList.remove('hidden');if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}if(st)st.textContent=primary.length?`已找到 ${primary.length} 個附近巴士站；小巴及港鐵背景補上。`:`${selectedRadius}m 內暫時未找到九巴／城巴站。`;if(btn)btn.disabled=false;
+    navigator.geolocation.getCurrentPosition(async p=>{try{const pos={lat:p.coords.latitude,lon:p.coords.longitude};if(st)st.textContent='定位成功，搜尋附近巴士站…';const primary=await nearbyStops(pos,selectedRadius,['KMB','CTB']);const primaryRows=[];await Promise.all(primary.map(async s=>primaryRows.push(...await etaRows(s))));state.nearby=mergeRows(primaryRows);if(sec)sec.classList.remove('hidden');if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}if(st)st.textContent=primary.length?`已找到 ${primary.length} 個附近巴士站；港鐵背景補上；小巴附近改為按需載入。`:`${selectedRadius}m 內暫時未找到九巴／城巴站。`;if(btn)btn.disabled=false;
       try{
-        window.dzNearbyPriority3105?.startSecondPhase?.();
-        const [_,mtrRow]=await Promise.all([Promise.race([window.dzNearbyPriority3105?.whenReady?.()||Promise.resolve(),sleep(10000)]),nearestMtrRow(pos,1400)]);
-        grids.GMB=null;const gmb=await nearbyStops(pos,selectedRadius,['GMB']),gmbRows=[];await Promise.all(gmb.map(async s=>gmbRows.push(...await etaRows(s))));
-        state.nearby=mergeRows([...state.nearby,...gmbRows,...(mtrRow?[mtrRow]:[])]);try{renderNearby();}catch{}
+        // Safari Safe Mode: do not expand the full-Hong-Kong GMB stop dataset
+        // after a nearby search. Keep only the lightweight nearest-MTR add-on.
+        window.dzNearbyPriority3105?.prepareMtr?.();
+        const mtrRow=await Promise.race([nearestMtrRow(pos,1400),sleep(6000).then(()=>null)]);
+        state.nearby=mergeRows([...state.nearby,...(mtrRow?[mtrRow]:[])]);
+        try{renderNearby();}catch{}
         const mtrText=mtrRow?`；最近港鐵 ${mtrRow.stopName} 約 ${mtrRow.walkMinutes} 分鐘步行`:'';
-        if(st)st.textContent=`完成 ${selectedRadius}m 附近搜尋：${primary.length+gmb.length} 個附近站${mtrText}。`;
+        if(st)st.textContent=`完成 ${selectedRadius}m 附近搜尋：${primary.length} 個巴士站${mtrText}；小巴附近資料暫停自動載入。`;
       }catch{}
       setTimeout(releaseGrids,0);
     }catch(e){releaseGrids();if(st)st.textContent=`附近搜尋失敗：${e?.message||'未知錯誤'}`;if(btn)btn.disabled=false;}},err=>{releaseGrids();if(st)st.textContent=err.code===1?'你未允許定位。':'暫時無法取得位置。';if(btn)btn.disabled=false;},{enableHighAccuracy:true,maximumAge:8000,timeout:15000});
