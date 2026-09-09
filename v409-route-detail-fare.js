@@ -1,9 +1,7 @@
 (() => {
   "use strict";
-  const VERSION = "4.0.9";
+  const VERSION = "4.0.16";
 
-  // Safe Boot removed the old helper stack, but app.js route-detail still calls parallel().
-  // Restore one small bounded helper instead of loading the legacy routing wrappers again.
   window.parallel = async function parallel(items, limit, worker) {
     const list = Array.from(items || []);
     const n = Math.max(1, Math.min(Number(limit) || 1, 6));
@@ -18,8 +16,6 @@
     await Promise.all(Array.from({ length: Math.min(n, list.length) }, run));
   };
 
-  // Full-fare lookup is deliberately lazy: nearby ETA renders first; fare data loads afterwards.
-  // This keeps the nearby search responsive and avoids bringing fare data into the boot path.
   const fareIndexes = new Map();
   const farePromises = new Map();
   const routeXml = {
@@ -58,6 +54,7 @@
   }
 
   async function fullFare(operator, route) {
+    if (operator === "MTR" || operator === "NLB") return null;
     const kind = operator === "GMB" ? "GMB" : "BUS";
     const index = await fareIndex(kind);
     const companies = operator === "KMB" ? ["KMB", "LWB"] : operator === "CTB" ? ["CTB"] : ["GMB"];
@@ -78,6 +75,7 @@
     const jobs = new Map();
     for (const el of nodes) {
       const op = el.dataset.nearFareOp;
+      if (op === "MTR" || op === "NLB") continue;
       const route = el.dataset.nearFareRoute;
       const key = `${op}|${route}`;
       if (!jobs.has(key)) jobs.set(key, fullFare(op, route).catch(() => null));
@@ -85,13 +83,19 @@
     }
   }
 
-  // Replace only the nearby renderer. Search/radius logic remains untouched.
   window.renderNearby = function renderNearby409() {
     const all = state.nearby.filter(x => state.nearbyFilter === "all" || x.operator === state.nearbyFilter);
     const list = all.slice(0, state.nearbyExpanded ? MAX_NEARBY_COUNT : SHORT_NEARBY_COUNT);
     $("#nearbySection").classList.remove("hidden");
-    $("#nearbyCount").textContent = `共 ${all.length} 個即將班次`;
-    $("#nearbyResults").innerHTML = list.length ? list.map(x => `<div class="near-card"><div>${operatorBadge(x.operator)}</div><div><div class="near-route">${escapeHtml(x.route)}</div><div class="near-dest">→ ${escapeHtml(x.dest || "目的地")}</div><div class="near-meta">${escapeHtml(x.stopName)} · ${Math.round(x.distance)}m</div></div><div class="near-fare" data-near-fare-op="${escapeHtml(x.operator)}" data-near-fare-route="${escapeHtml(x.route)}">車費…</div><div class="near-eta">${escapeHtml(etaLabel(x.eta))}</div></div>`).join("") : '<div class="empty">附近暫時未有可顯示 ETA。</div>';
+    $("#nearbyCount").textContent = `共 ${all.length} 個附近選項`;
+    $("#nearbyResults").innerHTML = list.length ? list.map(x => {
+      const isMtr = x.operator === "MTR" && x.walking;
+      const fareHtml = isMtr ? '<div class="near-fare near-walk-label">步行</div>' : `<div class="near-fare" data-near-fare-op="${escapeHtml(x.operator)}" data-near-fare-route="${escapeHtml(x.route)}">車費…</div>`;
+      const etaText = isMtr ? `約 ${Math.max(1, Number(x.walkMinutes)||1)} 分鐘` : etaLabel(x.eta);
+      const destText = isMtr ? '港鐵站' : (x.dest || '目的地');
+      const metaText = isMtr ? `${Math.round(x.distance)}m · 步行時間` : `${x.stopName} · ${Math.round(x.distance)}m`;
+      return `<div class="near-card${isMtr?' dz-near-mtr':''}"><div>${operatorBadge(x.operator)}</div><div><div class="near-route">${escapeHtml(x.route)}</div><div class="near-dest">→ ${escapeHtml(destText)}</div><div class="near-meta">${escapeHtml(metaText)}</div></div>${fareHtml}<div class="near-eta">${escapeHtml(etaText)}</div></div>`;
+    }).join("") : '<div class="empty">附近暫時未有可顯示資料。</div>';
     const canToggle = all.length > SHORT_NEARBY_COUNT;
     $("#nearbyMore").classList.toggle("hidden", !canToggle);
     $("#nearbyCollapseTop").classList.toggle("hidden", !canToggle || !state.nearbyExpanded);
@@ -100,6 +104,6 @@
   };
 
   const style = document.createElement("style");
-  style.textContent = `.near-card{grid-template-columns:auto minmax(0,1fr) auto auto}.near-fare{align-self:center;white-space:nowrap;color:#c9ccd3;font-size:.9rem;font-weight:700;margin:0 8px}.near-eta{white-space:nowrap}@media(max-width:430px){.near-fare{font-size:.82rem;margin:0 4px}}`;
+  style.textContent = `.near-card{grid-template-columns:auto minmax(0,1fr) auto auto}.near-fare{align-self:center;white-space:nowrap;color:#c9ccd3;font-size:.9rem;font-weight:700;margin:0 8px}.near-eta{white-space:nowrap}.dz-near-mtr .near-route{font-weight:850}.dz-near-mtr .near-fare{color:#8fbce8}@media(max-width:430px){.near-fare{font-size:.82rem;margin:0 4px}}`;
   document.head.appendChild(style);
 })();
