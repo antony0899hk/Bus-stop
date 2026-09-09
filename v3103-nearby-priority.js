@@ -3,15 +3,12 @@
 
   const nativeFetch = window.fetch.bind(window);
   const stage = {
-    version: "4.0.4-stage",
+    version: "4.0.17-safe",
     gmbStarted: false,
-    gmbReady: false,
+    gmbReady: true,
     mtrReady: false,
     secondPhaseReady: false,
-    queued: [],
-    active: 0,
-    seen: 0,
-    maxConcurrent: 2,
+    skippedGmbStopShards: 0,
     mtrPromise: null,
     readyPromise: null,
     readyResolve: null
@@ -20,51 +17,37 @@
   stage.readyPromise = new Promise(resolve => { stage.readyResolve = resolve; });
   window.dzStageLoader3105 = stage;
 
-  function isLocalGmbShard(input) {
+  function isLocalGmbStopShard(input) {
     try {
       const raw = typeof input === "string" ? input : input?.url;
       if (!raw) return false;
       const url = new URL(raw, location.href);
-      return url.origin === location.origin && /\/gmb-(?:routes|stops)-\d+\.json$/i.test(url.pathname);
+      return url.origin === location.origin && /\/gmb-stops-\d+\.json$/i.test(url.pathname);
     } catch { return false; }
   }
+
+  function emptyJsonResponse() {
+    return new Response(JSON.stringify({data:[]}), {
+      status: 200,
+      headers: {"Content-Type":"application/json","Cache-Control":"no-store"}
+    });
+  }
+
+  // iPhone Safari safety:
+  // Do not load all 16 territory-wide GMB stop shards into memory during boot/nearby.
+  // GMB route metadata still loads normally, and route detail can fetch its own stops live.
+  window.fetch = function stagedFetch(input, init) {
+    if (!isLocalGmbStopShard(input)) return nativeFetch(input, init);
+    stage.skippedGmbStopShards++;
+    return Promise.resolve(emptyJsonResponse());
+  };
 
   function checkReady() {
     if (!stage.secondPhaseReady && stage.gmbReady && stage.mtrReady) {
       stage.secondPhaseReady = true;
       stage.readyResolve?.();
-      document.dispatchEvent(new CustomEvent('dz:nearby-secondary-ready'));
+      document.dispatchEvent(new CustomEvent("dz:nearby-secondary-ready"));
     }
-  }
-
-  function pump() {
-    if (!stage.gmbStarted) return;
-    while (stage.active < stage.maxConcurrent && stage.queued.length) {
-      const job = stage.queued.shift();
-      stage.active++;
-      nativeFetch(job.input, job.init).then(job.resolve, job.reject).finally(() => {
-        stage.active--;
-        pump();
-        if (stage.active === 0 && stage.queued.length === 0 && stage.seen >= 24) {
-          stage.gmbReady = true;
-          checkReady();
-        }
-      });
-    }
-  }
-
-  window.fetch = function stagedFetch(input, init) {
-    if (!isLocalGmbShard(input)) return nativeFetch(input, init);
-    stage.seen++;
-    return new Promise((resolve, reject) => {
-      stage.queued.push({input, init, resolve, reject});
-      pump();
-    });
-  };
-
-  function startGmb() {
-    if (!stage.gmbStarted) stage.gmbStarted = true;
-    pump();
   }
 
   async function prepareMtr() {
@@ -72,7 +55,7 @@
     stage.mtrPromise = (async () => {
       try {
         const fn = window.dzExtraTransit?.ensureMtrData;
-        if (typeof fn === 'function') await fn();
+        if (typeof fn === "function") await fn();
       } catch {}
       stage.mtrReady = true;
       checkReady();
@@ -80,8 +63,10 @@
     return stage.mtrPromise;
   }
 
+  // Kept for compatibility with journey code. It no longer expands the full
+  // GMB stop database; it only prepares the lightweight MTR catalogue.
   function startSecondPhase() {
-    startGmb();
+    stage.gmbStarted = true;
     prepareMtr();
   }
 
