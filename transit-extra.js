@@ -104,14 +104,14 @@
     if(!extra.mtrGraph.get(b).some(x=>x.to===a&&x.line===line))extra.mtrGraph.get(b).push({to:a,line});
   }
 
+  let mtrFarePromise=null;
+  let mtrFaresLoaded=false;
+
   async function ensureMtrData() {
     if (extra.mtrRows.length) return;
     if (extra.mtrPromise) return extra.mtrPromise;
     extra.mtrPromise=(async()=>{
-      const [lr,fr] = await Promise.all([
-        fetch(MTR_LINES_CSV,{cache:"force-cache"}).then(r=>{if(!r.ok)throw new Error(`MTR lines HTTP ${r.status}`);return r.text();}),
-        fetch(MTR_FARES_CSV,{cache:"force-cache"}).then(r=>r.ok?r.text():"").catch(()=>"")
-      ]);
+      const lr=await fetch(MTR_LINES_CSV,{cache:"force-cache"}).then(r=>{if(!r.ok)throw new Error(`MTR lines HTTP ${r.status}`);return r.text();});
       const rows=csvParse(lr);
       const header=rows.shift().map(x=>String(x).trim().toUpperCase());
       const idx=(...names)=>{for(const n of names){const i=header.indexOf(n);if(i>=0)return i;}return -1;};
@@ -127,19 +127,27 @@
         list.sort((a,b)=>a.seq-b.seq);
         for(let i=0;i<list.length-1;i++) addGraphEdge(list[i].code,list[i+1].code,list[i].line);
       }
+    })().finally(()=>{extra.mtrPromise=null;});
+    return extra.mtrPromise;
+  }
+
+  async function ensureMtrFares() {
+    if (mtrFaresLoaded) return;
+    if (mtrFarePromise) return mtrFarePromise;
+    mtrFarePromise=(async()=>{
+      const fr=await fetch(MTR_FARES_CSV,{cache:"force-cache"}).then(r=>r.ok?r.text():"").catch(()=>"");
       if(fr){
         const fares=csvParse(fr), fh=fares.shift().map(x=>String(x).trim().toUpperCase());
         const fi=n=>fh.indexOf(n), sId=fi("SRC_STATION_ID"), dId=fi("DEST_STATION_ID"), fId=fi("OCT_ADT_FARE");
         if(sId>=0&&dId>=0&&fId>=0){fares.forEach(r=>{const f=Number(r[fId]);if(Number.isFinite(f))extra.mtrFares.set(`${r[sId]}|${r[dId]}`,f);});}
       }
-    })().finally(()=>{extra.mtrPromise=null;});
-    return extra.mtrPromise;
+      mtrFaresLoaded=true;
+    })().finally(()=>{mtrFarePromise=null;});
+    return mtrFarePromise;
   }
 
-  // Let later journey-planner layers explicitly wait for the MTR catalogue.
-  // Previously the East Rail layer could run while the background MTR fetch was
-  // still in flight, see an empty catalogue, and silently return no result.
   extra.ensureMtrData = ensureMtrData;
+  extra.ensureMtrFares = ensureMtrFares;
 
   function mtrMatch(value, location=null){
     const q=String(value||"").trim().replace(/\s+/g,"").replace(/港鐵/g,"").replace(/站$/,'');
@@ -177,6 +185,7 @@
 
   async function mtrJourneyCandidate(fromValue,toValue,originLocation){
     await ensureMtrData();
+    await ensureMtrFares().catch(()=>{});
     const origins=mtrMatch(fromValue,originLocation), dests=mtrMatch(toValue,null);
     if(!origins.length||!dests.length)return null;
     const path=shortestMtrPath(origins.map(x=>x.code),dests.map(x=>x.code));
@@ -260,7 +269,7 @@
     });
   };
 
-  document.querySelector('#locateBtn')?.addEventListener('click',()=>setTimeout(supplementNlbNearby,150));
+  // Safe Mode: do not expand the full NLB catalogue automatically on nearby click.
 
   const oldRunJourney=runJourneySearch;
   runJourneySearch=async function(){
@@ -310,7 +319,6 @@
     installNlbUi();
     const status=document.querySelector('#status');
     try{await ensureNlbRoutes(); if(status&&status.textContent.includes('已載入')) status.textContent=status.textContent.replace('九巴＋城巴＋小巴','九巴＋城巴＋小巴＋嶼巴');}catch{}
-    ensureMtrData().catch(()=>{});
     const js=document.querySelector('#journeyStatus');if(js)js.textContent='支援九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵；直達優先，並嘗試一次轉車方案。';
   }
 
