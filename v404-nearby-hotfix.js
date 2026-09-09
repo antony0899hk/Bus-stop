@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION = "4.0.5";
+  const VERSION = "4.0.10";
   const CELL = 0.002;
   const grids = {KMB:null,CTB:null,GMB:null};
   const waits = {KMB:null,CTB:null,GMB:null};
@@ -16,11 +16,10 @@
     if(grids[op])return grids[op]; if(waits[op])return waits[op];
     waits[op]=(async()=>{const out=new Map();if(!await waitForData(op))return out;let n=0;for(const [id,s] of mapFor(op)){const c=coords(s);if(!c)continue;const k=keyFor(c.lat,c.lon);if(!out.has(k))out.set(k,[]);out.get(k).push({operator:op,id:String(id),stop:s,lat:c.lat,lon:c.lon,name:stopName(s)});if((++n%500)===0)await sleep(0);}grids[op]=out;return out;})().finally(()=>waits[op]=null);return waits[op];
   }
+  function releaseGrids(){grids.KMB=null;grids.CTB=null;grids.GMB=null;}
   async function nearbyStops(pos,radius,ops){
     const out=[];
     const latCells=Math.ceil((radius/110540)/CELL)+1,lonCells=Math.ceil((radius/(111320*Math.max(.3,Math.cos(pos.lat*Math.PI/180))))/CELL)+1;
-    // IMPORTANT: grid key is lat first, lon second. Previous code swapped them here,
-    // so every nearby lookup searched the wrong cells and always returned zero stops.
     const latCell=Math.floor(pos.lat/CELL),lonCell=Math.floor(pos.lon/CELL);
     for(const op of ops){const grid=await ensureGrid(op),list=[];for(let y=latCell-latCells;y<=latCell+latCells;y++)for(let x=lonCell-lonCells;x<=lonCell+lonCells;x++)for(const s of grid.get(`${y}:${x}`)||[]){const d=distanceMeters(pos.lat,pos.lon,s.lat,s.lon);if(Number.isFinite(d)&&d<=radius)list.push({...s,distance:d});}list.sort((a,b)=>a.distance-b.distance);out.push(...list.slice(0,op==='GMB'?6:8));}
     return out.sort((a,b)=>a.distance-b.distance);
@@ -42,8 +41,11 @@
     if(!navigator.geolocation){if(st)st.textContent='此瀏覽器不支援定位。';if(btn)btn.disabled=false;return;}
     navigator.geolocation.getCurrentPosition(async p=>{try{const pos={lat:p.coords.latitude,lon:p.coords.longitude};if(st)st.textContent='定位成功，搜尋附近巴士站…';const primary=await nearbyStops(pos,selectedRadius,['KMB','CTB']);const primaryRows=[];await Promise.all(primary.map(async s=>primaryRows.push(...await etaRows(s))));state.nearby=mergeRows(primaryRows);if(sec)sec.classList.remove('hidden');if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}if(st)st.textContent=primary.length?`已找到 ${primary.length} 個附近巴士站；小巴背景補上。`:`${selectedRadius}m 內暫時未找到九巴／城巴站。`;if(btn)btn.disabled=false;
       try{window.dzNearbyPriority3105?.startSecondPhase?.();await Promise.race([window.dzNearbyPriority3105?.whenReady?.()||Promise.resolve(),sleep(10000)]);grids.GMB=null;const gmb=await nearbyStops(pos,selectedRadius,['GMB']),gmbRows=[];await Promise.all(gmb.map(async s=>gmbRows.push(...await etaRows(s))));state.nearby=mergeRows([...state.nearby,...gmbRows]);try{renderNearby();}catch{}if(st)st.textContent=`完成 ${selectedRadius}m 附近搜尋：${primary.length+gmb.length} 個附近站。`;}catch{}
-    }catch(e){if(st)st.textContent=`附近搜尋失敗：${e?.message||'未知錯誤'}`;if(btn)btn.disabled=false;}},err=>{if(st)st.textContent=err.code===1?'你未允許定位。':'暫時無法取得位置。';if(btn)btn.disabled=false;},{enableHighAccuracy:true,maximumAge:8000,timeout:15000});
+      // Spatial grids are only a temporary accelerator. Drop them after rendering so
+      // route search does not inherit another full set of stop references on iPhone Safari.
+      setTimeout(releaseGrids,0);
+    }catch(e){releaseGrids();if(st)st.textContent=`附近搜尋失敗：${e?.message||'未知錯誤'}`;if(btn)btn.disabled=false;}},err=>{releaseGrids();if(st)st.textContent=err.code===1?'你未允許定位。':'暫時無法取得位置。';if(btn)btn.disabled=false;},{enableHighAccuracy:true,maximumAge:8000,timeout:15000});
   }
   window.addEventListener('click',e=>{const rb=e.target.closest?.('[data-dz-radius]');if(rb){e.preventDefault();e.stopImmediatePropagation();selectedRadius=Number(rb.dataset.dzRadius)||100;search(selectedRadius);return;}const b=e.target.closest?.('#locateBtn');if(b){e.preventDefault();e.stopImmediatePropagation();search(selectedRadius);}},true);
-  const badge=document.querySelector('.app-version');if(badge){badge.textContent=`v${VERSION}`;badge.setAttribute('aria-label',`版本 v${VERSION}`);}window.dzNearby404={version:VERSION,search,nearbyStops};
+  const badge=document.querySelector('.app-version');if(badge){badge.textContent=`v${VERSION}`;badge.setAttribute('aria-label',`版本 v${VERSION}`);}window.dzNearby404={version:VERSION,search,nearbyStops,releaseGrids};
 })();
