@@ -21,9 +21,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Generate official GMB route and stop index
+      - name: Refresh official GMB source index
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: node scripts/generate-gmb-data.mjs
+      - name: Build local-first runtime bundles
+        run: node scripts/build-runtime-bundles.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
