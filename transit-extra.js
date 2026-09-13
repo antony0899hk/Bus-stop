@@ -4,8 +4,25 @@
   const NLB_API = "https://rt.data.gov.hk/v2/transport/nlb";
   const MTR_LINES_CSV = "https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv";
   const MTR_FARES_CSV = "https://opendata.mtr.com.hk/data/mtr_lines_fares.csv";
-  const MTR_SCHEDULE = "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php";
   const MTR_RADIUS = 550;
+
+  // MTR is treated as a stable high-frequency backbone for journey planning.
+  // We do not request Next Train ETA here. Journey time is deterministic:
+  // line running time + fixed interchange allowance + small average wait + access walk.
+  const MTR_WAIT_MINUTES = 2.5;
+  const MTR_TRANSFER_MINUTES = 4;
+  const MTR_LINE_MIN_PER_STOP = {
+    ISL: 2.0,
+    TWL: 2.1,
+    KTL: 2.1,
+    TKL: 2.2,
+    EAL: 2.6,
+    TML: 2.5,
+    TCL: 2.8,
+    AEL: 5.5,
+    SIL: 2.4,
+    DRL: 2.5
+  };
 
   const extra = {
     nlbRoutes: [],
@@ -84,7 +101,10 @@
     const pending=routes.filter(r=>!extra.nlbRouteStops.has(String(r.routeId)));
     let i=0;
     await Promise.all(Array.from({length:6},async()=>{
-      while(i<pending.length){const r=pending[i++];try{await nlbStopsForRoute(r.routeId);}catch{}}
+      while(i<pending.length){
+        const r=pending[i++];
+        try{await nlbStopsForRoute(r.routeId);}catch{}
+      }
     }));
   }
 
@@ -94,7 +114,8 @@
     if (!q) return null;
     const candidates=allJourneyStops().filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)&&String(s.name||'').includes(q));
     if (!candidates.length) return null;
-    const c=candidates[0]; return {lat:c.lat,lon:c.lon};
+    const c=candidates[0];
+    return {lat:c.lat,lon:c.lon};
   }
 
   function addGraphEdge(a,b,line){
@@ -122,7 +143,11 @@
         extra.mtrStations.get(r.code).lines.add(r.line);
       }
       const byLineDir=new Map();
-      for(const r of extra.mtrRows){const k=`${r.line}|${r.dir}`;if(!byLineDir.has(k))byLineDir.set(k,[]);byLineDir.get(k).push(r);}
+      for(const r of extra.mtrRows){
+        const k=`${r.line}|${r.dir}`;
+        if(!byLineDir.has(k))byLineDir.set(k,[]);
+        byLineDir.get(k).push(r);
+      }
       for(const list of byLineDir.values()){
         list.sort((a,b)=>a.seq-b.seq);
         for(let i=0;i<list.length-1;i++) addGraphEdge(list[i].code,list[i+1].code,list[i].line);
@@ -139,7 +164,12 @@
       if(fr){
         const fares=csvParse(fr), fh=fares.shift().map(x=>String(x).trim().toUpperCase());
         const fi=n=>fh.indexOf(n), sId=fi("SRC_STATION_ID"), dId=fi("DEST_STATION_ID"), fId=fi("OCT_ADT_FARE");
-        if(sId>=0&&dId>=0&&fId>=0){fares.forEach(r=>{const f=Number(r[fId]);if(Number.isFinite(f))extra.mtrFares.set(`${r[sId]}|${r[dId]}`,f);});}
+        if(sId>=0&&dId>=0&&fId>=0){
+          fares.forEach(r=>{
+            const f=Number(r[fId]);
+            if(Number.isFinite(f))extra.mtrFares.set(`${r[sId]}|${r[dId]}`,f);
+          });
+        }
       }
       mtrFaresLoaded=true;
     })().finally(()=>{mtrFarePromise=null;});
@@ -156,31 +186,46 @@
       const tc=String(s.name_tc||"").replace(/站$/,'');
       const en=String(s.name_en||"").toLowerCase().replace(/\s+/g,'');
       let rank=99;
-      if(location){const c=mtrStationApproxCoords(s);if(!c)continue;const d=distanceMeters(location.lat,location.lon,c.lat,c.lon);if(d<=MTR_RADIUS)out.push({...s,operator:"MTR",lat:c.lat,lon:c.lon,distance:d,rank:d});continue;}
+      if(location){
+        const c=mtrStationApproxCoords(s);
+        if(!c)continue;
+        const d=distanceMeters(location.lat,location.lon,c.lat,c.lon);
+        if(d<=MTR_RADIUS)out.push({...s,operator:"MTR",lat:c.lat,lon:c.lon,distance:d,rank:d});
+        continue;
+      }
       const qq=q.toLowerCase();
-      if(tc===q||en===qq)rank=0; else if(tc.includes(q)||en.includes(qq))rank=1;
+      if(tc===q||en===qq)rank=0;
+      else if(tc.includes(q)||en.includes(qq))rank=1;
       if(rank<99)out.push({...s,operator:"MTR",distance:0,rank});
     }
     return out.sort((a,b)=>a.rank-b.rank).slice(0,12);
   }
 
   function shortestMtrPath(startCodes,endCodes){
-    const target=new Set(endCodes), queue=[]; const seen=new Set();
+    const target=new Set(endCodes), queue=[], seen=new Set();
     for(const s of startCodes){queue.push({code:s,path:[s],lines:[]});seen.add(s);}
     while(queue.length){
-      const cur=queue.shift(); if(target.has(cur.code))return cur;
-      for(const edge of extra.mtrGraph.get(cur.code)||[]){if(seen.has(edge.to))continue;seen.add(edge.to);queue.push({code:edge.to,path:[...cur.path,edge.to],lines:[...cur.lines,edge.line]});}
+      const cur=queue.shift();
+      if(target.has(cur.code))return cur;
+      for(const edge of extra.mtrGraph.get(cur.code)||[]){
+        if(seen.has(edge.to))continue;
+        seen.add(edge.to);
+        queue.push({code:edge.to,path:[...cur.path,edge.to],lines:[...cur.lines,edge.line]});
+      }
     }
     return null;
   }
 
-  async function mtrEta(line,stationCode){
-    try{
-      const j=await getJSON(`${MTR_SCHEDULE}?line=${encodeURIComponent(line)}&sta=${encodeURIComponent(stationCode)}`,{ttl:10000,retries:0});
-      const key=`${line}-${stationCode}`; const d=j.data?.[key]; if(!d)return null;
-      const all=[...(d.UP||[]),...(d.DOWN||[])].filter(x=>x.time).sort((a,b)=>String(a.time).localeCompare(String(b.time)));
-      return all[0]?.time||null;
-    }catch{return null;}
+  function mtrFixedJourneyMinutes(path, walkMeters=0){
+    if(!path?.lines?.length)return Math.max(0,Math.ceil(Number(walkMeters||0)/75));
+    let ride=0, transfers=0, previousLine=null;
+    for(const line of path.lines){
+      ride += MTR_LINE_MIN_PER_STOP[line] || 2.3;
+      if(previousLine && previousLine!==line)transfers++;
+      previousLine=line;
+    }
+    const walk=Math.max(0,Number(walkMeters||0))/75;
+    return Math.max(1,Math.round(ride + transfers*MTR_TRANSFER_MINUTES + MTR_WAIT_MINUTES + walk));
   }
 
   async function mtrJourneyCandidate(fromValue,toValue,originLocation){
@@ -191,10 +236,18 @@
     const path=shortestMtrPath(origins.map(x=>x.code),dests.map(x=>x.code));
     if(!path)return null;
     const o=extra.mtrStations.get(path.path[0]), d=extra.mtrStations.get(path.path[path.path.length-1]);
-    const uniqueLines=[]; path.lines.forEach(l=>{if(uniqueLines[uniqueLines.length-1]!==l)uniqueLines.push(l);});
+    const uniqueLines=[];
+    path.lines.forEach(l=>{if(uniqueLines[uniqueLines.length-1]!==l)uniqueLines.push(l);});
     const fare=extra.mtrFares.get(`${o.id}|${d.id}`) ?? extra.mtrFares.get(`${d.id}|${o.id}`) ?? null;
-    const eta=uniqueLines[0]?await mtrEta(uniqueLines[0],o.code):null;
-    return {kind:"mtr",operator:"MTR",route:uniqueLines.join(" → "),transferCount:Math.max(0,uniqueLines.length-1),stopCount:Math.max(0,path.path.length-1),walkMeters:origins.find(x=>x.code===o.code)?.distance||0,fare,eta,originStop:{id:o.code,name:o.name_tc},destinationStop:{id:d.code,name:d.name_tc},mtrPath:path.path,mtrLines:uniqueLines};
+    const walkMeters=origins.find(x=>x.code===o.code)?.distance||0;
+    const journeyMinutes=mtrFixedJourneyMinutes(path,walkMeters);
+    return {
+      kind:"mtr", operator:"MTR", route:uniqueLines.join(" → "),
+      transferCount:Math.max(0,uniqueLines.length-1), stopCount:Math.max(0,path.path.length-1),
+      walkMeters, fare, journeyMinutes, timeModel:"fixed",
+      originStop:{id:o.code,name:o.name_tc}, destinationStop:{id:d.code,name:d.name_tc},
+      mtrPath:path.path, mtrLines:uniqueLines
+    };
   }
 
   function nlbBadge(){return '<span class="badge nlb">嶼巴</span>';}
@@ -205,10 +258,21 @@
       const attr=isSearch?'data-search-filter':'data-near-filter';
       if(row.querySelector(`[${attr}="NLB"]`))return;
       const mtr=row.querySelector(`[${attr}="MTR"]`);
-      const b=document.createElement('button');b.className='filter nlb-filter';b.setAttribute(attr,'NLB');b.textContent='嶼巴';
+      const b=document.createElement('button');
+      b.className='filter nlb-filter';
+      b.setAttribute(attr,'NLB');
+      b.textContent='嶼巴';
       if(mtr)mtr.insertAdjacentElement('beforebegin',b);else row.appendChild(b);
-      if(isSearch)b.addEventListener('click',()=>{state.searchFilter='NLB';row.querySelectorAll('[data-search-filter]').forEach(x=>x.classList.toggle('active',x===b));if(document.querySelector('#routeSearch').value.trim())renderSearch();});
-      else b.addEventListener('click',()=>{state.nearbyFilter='NLB';state.nearbyExpanded=false;row.querySelectorAll('[data-near-filter]').forEach(x=>x.classList.toggle('active',x===b));renderNearby();});
+      if(isSearch)b.addEventListener('click',()=>{
+        state.searchFilter='NLB';
+        row.querySelectorAll('[data-search-filter]').forEach(x=>x.classList.toggle('active',x===b));
+        if(document.querySelector('#routeSearch').value.trim())renderSearch();
+      });
+      else b.addEventListener('click',()=>{
+        state.nearbyFilter='NLB'; state.nearbyExpanded=false;
+        row.querySelectorAll('[data-near-filter]').forEach(x=>x.classList.toggle('active',x===b));
+        renderNearby();
+      });
     });
   }
 
@@ -237,35 +301,22 @@
           fillEta(s.stop,etas);
         }catch{fillEta(s.stop,[]);}
       });
-    }catch(e){document.querySelector('#stops').innerHTML=`<div class="error">嶼巴資料暫時未能載入：${escapeHtml(e.message)}</div>`;}
+    }catch(e){
+      document.querySelector('#stops').innerHTML=`<div class="error">嶼巴資料暫時未能載入：${escapeHtml(e.message)}</div>`;
+    }
   };
-
-  async function supplementNlbNearby(){
-    try{
-      await ensureNlbCatalog();
-      const pos=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:30000}));
-      const candidates=[];
-      for(const [id,s] of extra.nlbStops){const d=distanceMeters(pos.coords.latitude,pos.coords.longitude,Number(s.lat),Number(s.long));if(Number.isFinite(d)&&d<=100)candidates.push({id,s,d});}
-      candidates.sort((a,b)=>a.d-b.d);
-      const rows=[];
-      await parallel(candidates.slice(0,12),4,async c=>{
-        for(const r of extra.nlbRoutes){const stops=extra.nlbRouteStops.get(String(r.routeId))||[];const hit=stops.find(x=>x.stop===c.id);if(!hit)continue;
-          try{const j=await getJSON(`${NLB_API}/stop.php?action=estimatedArrivals&routeId=${encodeURIComponent(r.routeId)}&stopId=${encodeURIComponent(c.id)}&language=zh`,{ttl:20000,retries:0});for(const e of j.estimatedArrivals||[]){const eta=String(e.estimatedArrivalTime||'').replace(' ','T')+'+08:00';if(validFutureEta(eta))rows.push({operator:'NLB',route:r.route,dest:r.dest,eta,remark:e.routeVariantName||'',distance:c.d,stopId:c.id,stopName:c.s.name_tc||'',fare:Number(hit.fare)});}}catch{}
-        }
-      });
-      state.nearby.push(...rows);
-      const seen=new Set(); state.nearby=state.nearby.sort((a,b)=>new Date(a.eta)-new Date(b.eta)).filter(x=>{const k=[x.operator,x.route,x.eta,x.stopId,x.dest].join('|');if(seen.has(k))return false;seen.add(k);return true;});
-      renderNearby();
-    }catch{}
-  }
 
   const oldRenderNearby=renderNearby;
   renderNearby=function(){
     oldRenderNearby();
     document.querySelectorAll('#nearbyResults .near-card').forEach(card=>{
-      const route=card.querySelector('.near-route')?.textContent?.trim(); const meta=card.querySelector('.near-meta')?.textContent||'';
-      const stopName=meta.split('·')[0].trim(); const x=state.nearby.find(v=>String(v.route)===route&&v.stopName===stopName);
-      if(x?.operator==='NLB'&&Number.isFinite(x.fare)&&!card.querySelector('.near-fare')) card.querySelector('.near-meta')?.insertAdjacentHTML('beforeend',`<span class="near-fare"> · $${Number(x.fare).toFixed(1)}</span>`);
+      const route=card.querySelector('.near-route')?.textContent?.trim();
+      const meta=card.querySelector('.near-meta')?.textContent||'';
+      const stopName=meta.split('·')[0].trim();
+      const x=state.nearby.find(v=>String(v.route)===route&&v.stopName===stopName);
+      if(x?.operator==='NLB'&&Number.isFinite(x.fare)&&!card.querySelector('.near-fare')){
+        card.querySelector('.near-meta')?.insertAdjacentHTML('beforeend',`<span class="near-fare"> · $${Number(x.fare).toFixed(1)}</span>`);
+      }
     });
   };
 
@@ -282,45 +333,76 @@
     const qO=norm(originValue), qD=norm(destinationValue);
     const loc=journeyState.originLocation;
     const nlbCandidates=[];
-    for(const r of extra.nlbRoutes){const stops=extra.nlbRouteStops.get(String(r.routeId))||[];let origins=[],dests=[];
+    for(const r of extra.nlbRoutes){
+      const stops=extra.nlbRouteStops.get(String(r.routeId))||[];
+      let origins=[],dests=[];
       if(loc) origins=stops.map((s,i)=>({s,i,d:distanceMeters(loc.lat,loc.lon,s.lat,s.long)})).filter(x=>Number.isFinite(x.d)&&x.d<=JOURNEY_RADIUS);
       else origins=stops.map((s,i)=>({s,i,d:0})).filter(x=>norm(x.s.name_tc).includes(qO));
       dests=stops.map((s,i)=>({s,i,d:0})).filter(x=>norm(x.s.name_tc).includes(qD));
-      for(const o of origins){const d=dests.find(x=>x.i>o.i);if(!d)continue;let eta=null;try{const j=await getJSON(`${NLB_API}/stop.php?action=estimatedArrivals&routeId=${encodeURIComponent(r.routeId)}&stopId=${encodeURIComponent(o.s.stop)}&language=zh`,{ttl:20000,retries:0});const e=(j.estimatedArrivals||[])[0];if(e)eta=String(e.estimatedArrivalTime||'').replace(' ','T')+'+08:00';}catch{}
-        nlbCandidates.push({kind:'direct',transferCount:0,operator:'NLB',route:r.route,bound:'',serviceType:'1',routeId:r.routeId,originStop:{id:o.s.stop,name:o.s.name_tc},destinationStop:{id:d.s.stop,name:d.s.name_tc},originPos:o.i,destinationPos:d.i,stopCount:d.i-o.i,walkMeters:o.d+d.d,meta:{orig:r.orig,dest:r.dest},eta,fare:Number(o.s.fare)});break;}
+      for(const o of origins){
+        const d=dests.find(x=>x.i>o.i);
+        if(!d)continue;
+        let eta=null;
+        try{
+          const j=await getJSON(`${NLB_API}/stop.php?action=estimatedArrivals&routeId=${encodeURIComponent(r.routeId)}&stopId=${encodeURIComponent(o.s.stop)}&language=zh`,{ttl:20000,retries:0});
+          const e=(j.estimatedArrivals||[])[0];
+          if(e)eta=String(e.estimatedArrivalTime||'').replace(' ','T')+'+08:00';
+        }catch{}
+        nlbCandidates.push({
+          kind:'direct',transferCount:0,operator:'NLB',route:r.route,bound:'',serviceType:'1',routeId:r.routeId,
+          originStop:{id:o.s.stop,name:o.s.name_tc},destinationStop:{id:d.s.stop,name:d.s.name_tc},
+          originPos:o.i,destinationPos:d.i,stopCount:d.i-o.i,walkMeters:o.d+d.d,
+          meta:{orig:r.orig,dest:r.dest},eta,fare:Number(o.s.fare)
+        });
+        break;
+      }
     }
+
     const mtr=await mtrJourneyCandidate(originValue,destinationValue,loc).catch(()=>null);
     if(nlbCandidates.length) journeyState.results.push(...nlbCandidates.slice(0,12));
     if(mtr) journeyState.results.push(mtr);
     renderJourneyResults();
-    const st=document.querySelector('#journeyStatus');if(st)st.textContent=st.textContent.replace('九巴／龍運、城巴及綠色專線小巴','九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵');
+    const st=document.querySelector('#journeyStatus');
+    if(st)st.textContent=st.textContent.replace('九巴／龍運、城巴及綠色專線小巴','九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵');
   };
 
   const oldRenderJourney=renderJourneyResults;
   function appendMtrCards(items){
-    const box=document.querySelector('#journeyResults'); if(!box)return;
+    const box=document.querySelector('#journeyResults');
+    if(!box)return;
     for(const mtr of items){
       const names=mtr.mtrPath.map(c=>extra.mtrStations.get(c)?.name_tc||c);
-      box.insertAdjacentHTML('beforeend',`<article class="journey-card journey-mtr-card"><div class="journey-rank">🚇</div><div class="journey-main"><div class="journey-top"><div><span class="badge mtr">MTR</span> <strong>${escapeHtml(mtr.route||'港鐵')}</strong></div><div class="journey-eta">${mtr.eta?escapeHtml(mtr.eta.split(' ')[1]?.slice(0,5)||mtr.eta):'列車班次密'}</div></div><div class="journey-title">${escapeHtml(names[0])} → ${escapeHtml(names[names.length-1])}</div><div class="journey-meta">${mtr.transferCount?`轉 ${mtr.transferCount} 次 · `:''}約 ${mtr.stopCount} 站${mtr.fare!=null?` · $${Number(mtr.fare).toFixed(1)}`:''}</div><div class="journey-note">${escapeHtml(names.join(' → '))}</div></div></article>`);
+      box.insertAdjacentHTML('beforeend',`<article class="journey-card journey-mtr-card"><div class="journey-rank">🚇</div><div class="journey-main"><div class="journey-top"><div><span class="badge mtr">MTR</span> <strong>${escapeHtml(mtr.route||'港鐵')}</strong></div><div class="journey-eta">約 ${Number(mtr.journeyMinutes)||0} 分鐘</div></div><div class="journey-title">${escapeHtml(names[0])} → ${escapeHtml(names[names.length-1])}</div><div class="journey-meta">${mtr.transferCount?`轉 ${mtr.transferCount} 次 · `:''}${mtr.stopCount} 站${mtr.fare!=null?` · $${Number(mtr.fare).toFixed(1)}`:''}</div><div class="journey-note">${escapeHtml(names.join(' → '))}</div></div></article>`);
     }
   }
+
   renderJourneyResults=function(){
     const only=journeyState.results.filter(r=>r.kind!=='mtr');
     const mtr=journeyState.results.filter(r=>r.kind==='mtr');
-    const original=journeyState.results; journeyState.results=only; oldRenderJourney(); journeyState.results=original;
+    const original=journeyState.results;
+    journeyState.results=only;
+    oldRenderJourney();
+    journeyState.results=original;
     appendMtrCards(mtr);
   };
 
   document.querySelector('#journeySearchBtn')?.addEventListener('click',e=>{
-    e.preventDefault(); e.stopImmediatePropagation(); runJourneySearch();
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    runJourneySearch();
   },true);
 
   async function init(){
     installNlbUi();
     const status=document.querySelector('#status');
-    try{await ensureNlbRoutes(); if(status&&status.textContent.includes('已載入')) status.textContent=status.textContent.replace('九巴＋城巴＋小巴','九巴＋城巴＋小巴＋嶼巴');}catch{}
-    const js=document.querySelector('#journeyStatus');if(js)js.textContent='支援九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵；直達優先，並嘗試一次轉車方案。';
+    try{
+      await ensureNlbRoutes();
+      if(status&&status.textContent.includes('已載入')) status.textContent=status.textContent.replace('九巴＋城巴＋小巴','九巴＋城巴＋小巴＋嶼巴');
+    }catch{}
+    const js=document.querySelector('#journeyStatus');
+    if(js)js.textContent='支援九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵；港鐵使用固定行車時間，不追下一班車 ETA。';
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
 })();
