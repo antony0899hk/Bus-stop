@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, urllib.request, xml.etree.ElementTree as ET
+import json, os, urllib.request, xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 URL = 'https://www.td.gov.hk/tc/special_news/trafficnews.xml'
@@ -28,17 +28,34 @@ for n in root.findall('.//message'):
         'status': status,
         'content': content,
     }
-    # Keep current messages; suppress messages that clearly say the incident has ended.
     ended = ('已解封','取消','恢復正常','重開','回復正常','已恢復正常')
     if not any(x in (status + content) for x in ended):
         items.append(item)
 
-payload = {
-    'source': URL,
-    'generated_at': datetime.now(timezone.utc).isoformat(),
-    'warnings': items,
-}
-with open(OUT,'w',encoding='utf-8') as f:
-    json.dump(payload,f,ensure_ascii=False,separators=(',',':'))
-    f.write('\n')
-print(f'wrote {len(items)} warnings')
+# Keep ordering deterministic so feed reordering alone does not create a commit.
+items.sort(key=lambda x: (
+    x.get('id',''), x.get('heading',''), x.get('location',''),
+    x.get('direction',''), x.get('updated',''), x.get('content','')
+))
+
+old = None
+if os.path.exists(OUT):
+    try:
+        with open(OUT,'r',encoding='utf-8') as f:
+            old = json.load(f)
+    except Exception:
+        old = None
+
+# generated_at is metadata only. Do not rewrite the file when warnings are unchanged.
+if old and old.get('source') == URL and old.get('warnings') == items:
+    print(f'unchanged: {len(items)} warnings')
+else:
+    payload = {
+        'source': URL,
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'warnings': items,
+    }
+    with open(OUT,'w',encoding='utf-8') as f:
+        json.dump(payload,f,ensure_ascii=False,separators=(',',':'))
+        f.write('\n')
+    print(f'wrote {len(items)} warnings')
