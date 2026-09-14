@@ -58,7 +58,7 @@
     }
     const byRoute=new Map();for(const c of candidates){const k=c.route.route;if(!byRoute.has(k)||c.distance<byRoute.get(k).distance)byRoute.set(k,c);}
     const out=[];
-    for(const c of [...byRoute.values()].slice(0,12)){
+    for(const c of [...byRoute.values()].slice(0,3)){
       try{
         const data=await schedule(c.route.route),mins=minutesForStop(data,c.stop.id);if(!mins.length)continue;
         out.push({operator:"MTRB",route:c.route.route,dest:c.route.dest||"",eta:new Date(Date.now()+mins[0]*60000).toISOString(),distance:c.distance,stopId:c.stop.id,stopName:c.stop.name_tc||c.stop.id,lat:c.stop.lat,lon:c.stop.long,mtrBusRegion:region});
