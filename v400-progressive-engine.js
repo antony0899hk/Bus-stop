@@ -3,7 +3,6 @@
 
   const VERSION = "4.0.0";
   const CELL = 0.002;
-  const NEARBY_RADII = [100, 200, 400];
   const NEAR_CAP = { KMB: 6, CTB: 6, GMB: 5 };
   const MAX_SEED_ROUTES = 14;
   const MAX_TRANSFER_CANDIDATES = 36;
@@ -69,59 +68,6 @@
       out.push(...list.slice(0,NEAR_CAP[op]||5));
     }
     return out.sort((a,b)=>a.distance-b.distance);
-  }
-
-  async function etaRowsForStop(s){
-    const rows=[];
-    try{
-      if(s.operator==="KMB"){
-        const j=await getJSON(`${KMB_API}/stop-eta/${encodeURIComponent(s.id)}`,{ttl:15000,retries:0});
-        for(const x of (j.data||[]).slice(0,50)) if(validFutureEta(x.eta)) rows.push({operator:"KMB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:s.distance,stopId:s.id,stopName:s.name,stopSeq:Number(x.seq)||0,bound:x.dir||""});
-      }else if(s.operator==="CTB"){
-        let data=[];
-        try{const j=await getJSON(`https://rt.data.gov.hk/v1/transport/batch/stop-eta/CTB/${encodeURIComponent(s.id)}`,{ttl:15000,retries:0});data=j.data||[];}catch{}
-        for(const x of data.slice(0,50)) if(validFutureEta(x.eta)) rows.push({operator:"CTB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:s.distance,stopId:s.id,stopName:s.name,stopSeq:Number(x.seq)||0,bound:x.dir||""});
-      }else if(s.operator==="GMB"){
-        const j=await getJSON(`${GMB_API}/eta/stop/${encodeURIComponent(s.id)}`,{ttl:15000,retries:0});
-        for(const occ of j.data||[]){
-          if(occ.enabled===false) continue;
-          const meta=state.gmbRoutes.find(r=>String(r.routeId)===String(occ.route_id)&&Number(r.routeSeq)===Number(occ.route_seq));
-          for(const e of occ.eta||[]) if(validFutureEta(e.timestamp)) rows.push({operator:"GMB",route:meta?.route||"小巴",dest:meta?.dest||"",eta:e.timestamp,remark:e.remarks_tc||"",distance:s.distance,stopId:s.id,stopName:s.name,stopSeq:Number(occ.stop_seq)||0,bound:meta?.bound||""});
-        }
-      }
-    }catch{}
-    return rows;
-  }
-
-  async function runNearbyOnly(radius=100){
-    radius=NEARBY_RADII.includes(Number(radius))?Number(radius):100;
-    const st=$("#nearbyStatus"),btn=$("#locateBtn"),sec=$("#nearbySection"),count=$("#nearbyCount");
-    if(st)st.textContent=`正在搜尋附近 ${radius}m…`;
-    if(btn)btn.disabled=true;
-    if(!navigator.geolocation){if(st)st.textContent="此瀏覽器不支援定位。";if(btn)btn.disabled=false;return;}
-    navigator.geolocation.getCurrentPosition(async p=>{
-      try{
-        const pos={lat:p.coords.latitude,lon:p.coords.longitude};
-        if(window.dzNearbyMapState){window.dzNearbyMapState.position=pos;window.dzNearbyMapState.radius=radius;}
-        const primary=await spatialStops(pos,radius,["KMB","CTB"]);
-        const rows=[];
-        await Promise.all(primary.map(async s=>rows.push(...await etaRowsForStop(s))));
-        const seen=new Set();
-        state.nearby=rows.sort((a,b)=>new Date(a.eta)-new Date(b.eta)).filter(x=>{const k=`${x.operator}|${String(x.route).toUpperCase()}`;if(seen.has(k))return false;seen.add(k);return true;});
-        if(sec)sec.classList.remove("hidden"); if(count)count.textContent=`${radius}m`;
-        try{renderNearby();}catch{}
-        if(st)st.textContent=`已顯示 ${radius}m 內巴士；小巴背景補上。`;
-        if(btn)btn.disabled=false;
-        await yieldUI();
-        const gmb=await spatialStops(pos,radius,["GMB"]), gmbRows=[];
-        await Promise.all(gmb.map(async s=>gmbRows.push(...await etaRowsForStop(s))));
-        const merged=[...state.nearby,...gmbRows].sort((a,b)=>new Date(a.eta)-new Date(b.eta));
-        const seen2=new Set(); state.nearby=merged.filter(x=>{const k=`${x.operator}|${String(x.route).toUpperCase()}`;if(seen2.has(k))return false;seen2.add(k);return true;});
-        try{renderNearby();}catch{}
-        if(window.dzNearbyMapState) window.dzNearbyMapState.stops=[...primary,...gmb].map(x=>({operator:x.operator,stop:x.id,stopObj:x.stop,lat:x.lat,lon:x.lon,name:x.name,distance:x.distance}));
-        if(st)st.textContent=`完成 ${radius}m 附近搜尋；只查附近站及其 ETA。`;
-      }catch(e){if(st)st.textContent="附近資料暫時未能載入。";if(btn)btn.disabled=false;}
-    },err=>{if(st)st.textContent=err.code===1?"你未允許定位。":"暫時無法取得位置。";if(btn)btn.disabled=false;},{enableHighAccuracy:true,maximumAge:8000,timeout:15000});
   }
 
   function routeIndex(op){return op==="KMB"?journeyState.kmbIndex:op==="CTB"?journeyState.ctbIndex:null;}
@@ -253,5 +199,5 @@
   },true);
 
   const badge=document.querySelector(".app-version");if(badge){badge.textContent=`v${VERSION}`;badge.setAttribute("aria-label",`版本 v${VERSION}`);}
-  window.dzProgressiveEngine400={version:VERSION,runNearbyOnly,runJourney:runProgressiveJourney,spatialStops};
+  window.dzProgressiveEngine400={version:VERSION,runJourney:runProgressiveJourney,spatialStops};
 })();
