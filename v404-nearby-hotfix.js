@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION="4.1.2",CELL=.002;
+  const VERSION="4.1.3",CELL=.002;
   const grids={KMB:null,CTB:null},waits={KMB:null,CTB:null};
   let selectedRadius=100;
   const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -44,18 +44,18 @@
       const pos={lat:p.coords.latitude,lon:p.coords.longitude};if(st)st.textContent='定位成功，搜尋附近巴士站…';
       // Keep the 100m nearby concept intact, but do not burst every adjacent
       // stop ETA request at once on iPhone Safari.
-      const primary=await nearbyStops(pos,selectedRadius,['KMB','CTB'],5),primaryRows=[];
-      await parallel(primary,3,async s=>primaryRows.push(...await etaRows(s)));
+      const primary=await nearbyStops(pos,selectedRadius,['KMB','CTB'],3),primaryRows=[];
+      await parallel(primary,2,async s=>primaryRows.push(...await etaRows(s)));
       state.nearby=mergeRows(primaryRows);if(sec)sec.classList.remove('hidden');if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}if(btn)btn.disabled=false;
       if(st)st.textContent=`已顯示 ${selectedRadius}m 內九巴／城巴；其他服務按區域背景補上。`;
       try{
         window.dzNearbyPriority3105?.prepareMtr?.();
         const [gmb,mtrBusRows,mtrRow]=await Promise.all([
-          window.dzNearbyPriority3105?.scanGmbNearby?.(pos,selectedRadius,6)||Promise.resolve([]),
+          window.dzNearbyPriority3105?.scanGmbNearby?.(pos,selectedRadius,3)||Promise.resolve([]),
           window.dzMtrBus?.nearby?.(pos,selectedRadius)||Promise.resolve([]),
           Promise.race([nearestMtrRow(pos,1400),sleep(6000).then(()=>null)])
         ]);
-        const gmbRows=[];await parallel(gmb||[],2,async s=>gmbRows.push(...await etaRows(s)));
+        const gmbRows=[];await parallel(gmb||[],1,async s=>gmbRows.push(...await etaRows(s)));
         state.nearby=mergeRows([...state.nearby,...gmbRows,...(mtrBusRows||[]),...(mtrRow?[mtrRow]:[])]);try{renderNearby();}catch{}
         const mtrText=mtrRow?`；最近港鐵 ${mtrRow.stopName} 約 ${mtrRow.walkMinutes} 分鐘步行`:'';
         if(st)st.textContent=`完成 ${selectedRadius}m 附近搜尋：${primary.length+(gmb||[]).length} 個地面站${mtrText}。`;
