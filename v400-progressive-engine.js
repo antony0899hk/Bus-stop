@@ -239,15 +239,17 @@
     finally{if(btn)btn.disabled=false;}
   }
 
-  // Make this engine authoritative. Legacy journey listeners call the global function,
-  // while nearby clicks are captured here so the older whole-map scan does not run.
+  // This engine remains authoritative for journey planning only. Nearby is handled
+  // by v404, which has stricter request limits for iPhone Safari.
   window.runJourneySearch=runProgressiveJourney;
   try{runJourneySearch=runProgressiveJourney;}catch{}
   document.addEventListener("click",e=>{
     const radiusBtn=e.target.closest?.("[data-dz-radius]");
-    if(radiusBtn){e.preventDefault();e.stopImmediatePropagation();runNearbyOnly(Number(radiusBtn.dataset.dzRadius)||100);return;}
+    // This listener is registered before v404. Let v404 receive nearby clicks so
+    // its memory-safe flow, rather than this older high-concurrency flow, is used.
+    if(radiusBtn)return;
     const locate=e.target.closest?.("#locateBtn");
-    if(locate){e.preventDefault();e.stopImmediatePropagation();const r=Number(window.dzNearbyMapState?.radius)||100;runNearbyOnly(r);}
+    if(locate)return;
   },true);
 
   const badge=document.querySelector(".app-version");if(badge){badge.textContent=`v${VERSION}`;badge.setAttribute("aria-label",`版本 v${VERSION}`);}
