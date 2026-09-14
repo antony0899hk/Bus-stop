@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION="4.1.3",CELL=.002;
+  const VERSION="4.1.4",CELL=.002;
   const grids={KMB:null,CTB:null},waits={KMB:null,CTB:null};
   let selectedRadius=100;
   const $=s=>document.querySelector(s),sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -31,8 +31,8 @@
     }catch{}return rows;
   }
   function normStationName(v=''){return String(v).replace(/港鐵/g,'').replace(/站$/,'').replace(/\s+/g,'').trim();}
-  async function nearestMtrRow(pos,maxDistance=1400){
-    try{const extra=window.dzExtraTransit;if(!extra?.ensureMtrData)return null;await Promise.race([extra.ensureMtrData(),sleep(7000)]);const stations=[...(extra.mtrStations?.values?.()||[])].filter(s=>s?.name_tc);if(!stations.length)return null;const stationByName=new Map(stations.map(s=>[normStationName(s.name_tc),s]));let best=null;const localStops=await nearbyStops(pos,maxDistance,['KMB','CTB'],80);for(const s of localStops){const name=normStationName(s.name);if(!name)continue;for(const [q,station] of stationByName){if(q.length<2||!name.includes(q))continue;if(!best||s.distance<best.distance)best={station,distance:s.distance,lat:s.lat,lon:s.lon,stopId:String(s.id)};}}if(!best)return null;const walkMinutes=Math.max(1,Math.ceil(best.distance/75));return {operator:'MTR',route:best.station.name_tc||'港鐵站',dest:'步行前往港鐵站',eta:new Date(Date.now()+walkMinutes*60000).toISOString(),distance:best.distance,stopId:best.station.code||best.stopId,stopName:best.station.name_tc||'港鐵站',walkMinutes,walking:true,mtrStationCode:best.station.code||'',lat:best.lat,lon:best.lon};}catch{return null;}
+  async function nearestMtrRow(pos,maxDistance=1400,limitPerOperator=20){
+    try{const extra=window.dzExtraTransit;if(!extra?.ensureMtrData)return null;await Promise.race([extra.ensureMtrData(),sleep(7000)]);const stations=[...(extra.mtrStations?.values?.()||[])].filter(s=>s?.name_tc);if(!stations.length)return null;const stationByName=new Map(stations.map(s=>[normStationName(s.name_tc),s]));let best=null;const localStops=await nearbyStops(pos,maxDistance,['KMB','CTB'],limitPerOperator);for(const s of localStops){const name=normStationName(s.name);if(!name)continue;for(const [q,station] of stationByName){if(q.length<2||!name.includes(q))continue;if(!best||s.distance<best.distance)best={station,distance:s.distance,lat:s.lat,lon:s.lon,stopId:String(s.id)};}}if(!best)return null;const walkMinutes=Math.max(1,Math.ceil(best.distance/75));return {operator:'MTR',route:best.station.name_tc||'港鐵站',dest:'步行前往港鐵站',eta:new Date(Date.now()+walkMinutes*60000).toISOString(),distance:best.distance,stopId:best.station.code||best.stopId,stopName:best.station.name_tc||'港鐵站',walkMinutes,walking:true,mtrStationCode:best.station.code||'',lat:best.lat,lon:best.lon};}catch{return null;}
   }
   function mergeRows(rows){const seen=new Set();return rows.sort((a,b)=>new Date(a.eta)-new Date(b.eta)).filter(x=>{const k=`${x.operator}|${String(x.route).toUpperCase()}`;if(seen.has(k))return false;seen.add(k);return true;});}
 
@@ -49,14 +49,15 @@
       state.nearby=mergeRows(primaryRows);if(sec)sec.classList.remove('hidden');if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}if(btn)btn.disabled=false;
       if(st)st.textContent=`已顯示 ${selectedRadius}m 內九巴／城巴；其他服務按區域背景補上。`;
       try{
-        window.dzNearbyPriority3105?.prepareMtr?.();
-        const [gmb,mtrBusRows,mtrRow]=await Promise.all([
-          window.dzNearbyPriority3105?.scanGmbNearby?.(pos,selectedRadius,3)||Promise.resolve([]),
-          window.dzMtrBus?.nearby?.(pos,selectedRadius)||Promise.resolve([]),
-          Promise.race([nearestMtrRow(pos,1400),sleep(6000).then(()=>null)])
-        ]);
+        // Run secondary services one at a time. This keeps the same nearby results
+        // without overlapping map scans, schedules and ETA requests in Safari.
+        await window.dzNearbyPriority3105?.prepareMtr?.();
+        const gmb=await (window.dzNearbyPriority3105?.scanGmbNearby?.(pos,selectedRadius,3)||Promise.resolve([]));
         const gmbRows=[];await parallel(gmb||[],1,async s=>gmbRows.push(...await etaRows(s)));
-        state.nearby=mergeRows([...state.nearby,...gmbRows,...(mtrBusRows||[]),...(mtrRow?[mtrRow]:[])]);try{renderNearby();}catch{}
+        state.nearby=mergeRows([...state.nearby,...gmbRows]);try{renderNearby();}catch{}
+        const mtrBusRows=await (window.dzMtrBus?.nearby?.(pos,selectedRadius)||Promise.resolve([]));
+        const mtrRow=await Promise.race([nearestMtrRow(pos,1400,20),sleep(6000).then(()=>null)]);
+        state.nearby=mergeRows([...state.nearby,...(mtrBusRows||[]),...(mtrRow?[mtrRow]:[])]);try{renderNearby();}catch{}
         const mtrText=mtrRow?`；最近港鐵 ${mtrRow.stopName} 約 ${mtrRow.walkMinutes} 分鐘步行`:'';
         if(st)st.textContent=`完成 ${selectedRadius}m 附近搜尋：${primary.length+(gmb||[]).length} 個地面站${mtrText}。`;
       }catch{}
