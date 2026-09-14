@@ -22,7 +22,7 @@ jobs:
       - name: Capture official MTR schedule snapshot and derive fixed edge times
         run: |
           python - <<'PY'
-          import csv, io, json, math, statistics, time, urllib.parse, urllib.request
+          import csv, io, json, statistics, time, urllib.parse, urllib.request
           from collections import defaultdict
           from datetime import datetime, timezone
 
@@ -45,24 +45,18 @@ jobs:
           def pick(row,*names):
               for n in names:
                   if n in row and str(row[n]).strip(): return str(row[n]).strip()
-              # tolerate headings with spaces / case differences
               norm={str(k).strip().upper().replace(' ','_'):v for k,v in row.items()}
               for n in names:
                   v=norm.get(n.strip().upper().replace(' ','_'))
                   if v is not None and str(v).strip(): return str(v).strip()
               return ''
 
-          records=[]
-          stations={}
+          records=[]; stations={}
           for r in rows:
-              line=pick(r,'LINE_CODE','LINE CODE')
-              direction=pick(r,'DIRECTION')
-              code=pick(r,'STATION_CODE','STATION CODE')
-              sid=pick(r,'STATION_ID','STATION ID')
-              tc=pick(r,'CHINESE_NAME','CHINESE NAME')
-              en=pick(r,'ENGLISH_NAME','ENGLISH NAME')
-              seqs=pick(r,'SEQUENCE')
-              try: seq=float(seqs)
+              line=pick(r,'LINE_CODE','LINE CODE'); direction=pick(r,'DIRECTION')
+              code=pick(r,'STATION_CODE','STATION CODE'); sid=pick(r,'STATION_ID','STATION ID')
+              tc=pick(r,'CHINESE_NAME','CHINESE NAME'); en=pick(r,'ENGLISH_NAME','ENGLISH NAME')
+              try: seq=float(pick(r,'SEQUENCE'))
               except: continue
               if not (line and code): continue
               records.append({'line':line,'dir':direction,'code':code,'id':sid,'tc':tc,'en':en,'seq':seq})
@@ -74,52 +68,46 @@ jobs:
           for v in by_ld.values(): v.sort(key=lambda x:x['seq'])
 
           edges={}
-          for (line,d),lst in by_ld.items():
+          for (line,_),lst in by_ld.items():
               for a,b in zip(lst,lst[1:]):
                   if a['code']==b['code']: continue
                   k='|'.join(sorted([a['code'],b['code']])+[line])
                   edges.setdefault(k,{'line':line,'a':a['code'],'b':b['code']})
 
           snapshots={}
-          combos=sorted({(r['line'],r['code']) for r in records if r['line']!='DRL'} | {(r['line'],r['code']) for r in records if r['line']=='DRL'})
+          combos=sorted({(r['line'],r['code']) for r in records})
           for i,(line,sta) in enumerate(combos,1):
               url=f"{API}?line={urllib.parse.quote(line)}&sta={urllib.parse.quote(sta)}&lang=EN"
               try:
-                  j=json.loads(get_text(url,12))
-                  d=j.get('data',{}).get(f'{line}-{sta}',{})
-                  arr=[]
+                  j=json.loads(get_text(url,12)); d=j.get('data',{}).get(f'{line}-{sta}',{}); arr=[]
                   for direction in ('UP','DOWN'):
                       for t in d.get(direction,[]) or []:
-                          tm=str(t.get('time') or '').strip()
-                          dest=str(t.get('dest') or '').strip()
+                          tm=str(t.get('time') or '').strip(); dest=str(t.get('dest') or '').strip()
                           if tm and dest: arr.append({'dir':direction,'time':tm,'dest':dest})
                   snapshots[(line,sta)]=arr
-              except Exception as e:
+              except Exception:
                   snapshots[(line,sta)]=[]
-              if i%20==0: time.sleep(0.4)
-              else: time.sleep(0.06)
+              time.sleep(0.4 if i%20==0 else 0.06)
 
           def parse_time(s):
               for fmt in ('%Y-%m-%d %H:%M:%S','%Y-%m-%d %H:%M','%H:%M:%S','%H:%M'):
                   try:
-                      dt=datetime.strptime(s,fmt)
-                      return dt.hour*60+dt.minute+dt.second/60
+                      dt=datetime.strptime(s,fmt); return dt.hour*60+dt.minute+dt.second/60
                   except: pass
               return None
 
           def directed_samples(src,dst,line):
-              A=snapshots.get((line,src),[]); B=snapshots.get((line,dst),[])
               vals=[]
-              for x in A:
+              for x in snapshots.get((line,src),[]):
                   tx=parse_time(x['time'])
                   if tx is None: continue
                   candidates=[]
-                  for y in B:
+                  for y in snapshots.get((line,dst),[]):
                       if y['dest']!=x['dest'] or y['dir']!=x['dir']: continue
                       ty=parse_time(y['time'])
                       if ty is None: continue
                       diff=ty-tx
-                      if diff<0: diff+=24*60
+                      if diff<0: diff+=1440
                       if 0.5<=diff<=10: candidates.append(diff)
                   if candidates: vals.append(min(candidates))
               return vals
@@ -127,16 +115,11 @@ jobs:
           derived=0; fallback=0; out_edges=[]
           for e in sorted(edges.values(), key=lambda x:(x['line'],x['a'],x['b'])):
               line,a,b=e['line'],e['a'],e['b']
-              vals=directed_samples(a,b,line)+directed_samples(b,a,line)
-              vals=[v for v in vals if 0.5<=v<=10]
+              vals=[v for v in directed_samples(a,b,line)+directed_samples(b,a,line) if 0.5<=v<=10]
               if vals:
-                  minutes=round(statistics.median(vals)*2)/2
-                  source='official_next_train_snapshot'
-                  derived+=1
+                  minutes=round(statistics.median(vals)*2)/2; source='official_next_train_snapshot'; derived+=1
               else:
-                  minutes=FALLBACK.get(line,2.3)
-                  source='line_average_fallback'
-                  fallback+=1
+                  minutes=FALLBACK.get(line,2.3); source='line_average_fallback'; fallback+=1
               out_edges.append({'line':line,'a':a,'b':b,'minutes':minutes,'source':source,'samples':len(vals)})
 
           payload={
@@ -157,13 +140,12 @@ jobs:
               'edges':out_edges
           }
           with open(OUT,'w',encoding='utf-8') as f:
-              json.dump(payload,f,ensure_ascii=False,separators=(',',':'))
-              f.write('\n')
+              json.dump(payload,f,ensure_ascii=False,separators=(',',':')); f.write('\n')
           print(f"wrote {OUT}: {len(stations)} stations, {len(out_edges)} edges, {derived} derived, {fallback} fallback")
           PY
       - name: Commit fixed MTR time table
         run: |
-          if git diff --quiet -- mtr-fixed-times.json; then
+          if [ -z "$(git status --porcelain -- mtr-fixed-times.json)" ]; then
             echo 'No MTR fixed-time change'
             exit 0
           fi
