@@ -59,6 +59,5 @@
     return found.slice(0,Math.max(1,Number(limit)||8));
   }
 
-  setTimeout(()=>{prepareMtr().catch(()=>{});},300);
   window.dzNearbyPriority3105={version:VERSION,startSecondPhase,prepareMtr,loadGmbRoutesLite,scanGmbNearby,whenReady:()=>stage.readyPromise};
 })();
