@@ -269,70 +269,8 @@ function renderFavorites() {
   });
 }
 
-// ---------- Nearby 100m ----------
-async function locateNearby() {
-  if (!navigator.geolocation) { $("#nearbyStatus").textContent = "此瀏覽器不支援定位。"; return; }
-  $("#nearbyStatus").textContent = "正在取得位置…"; $("#locateBtn").disabled = true;
-  navigator.geolocation.getCurrentPosition(async pos => {
-    try {
-      const { latitude, longitude } = pos.coords;
-      $("#nearbyStatus").textContent = "定位成功，搜尋 100m 內車站…";
-      const nearbyStops = [];
-      for (const [operator, map] of [["KMB",state.kmbStops],["CTB",state.ctbStops],["GMB",state.gmbStops]]) {
-        const candidates = [];
-        for (const [id,s] of map) {
-          const lon = Number(s.long ?? s.lng ?? s.longitude), lat = Number(s.lat ?? s.latitude);
-          const d = distanceMeters(latitude, longitude, lat, lon);
-          if (Number.isFinite(d) && d <= 100) candidates.push({ operator, stop:String(id), stopObj:s, distance:d });
-        }
-        candidates.sort((a,b) => a.distance - b.distance);
-        nearbyStops.push(...candidates.slice(0, 15));
-      }
-      await loadNearbyEtas(nearbyStops);
-      $("#nearbyStatus").textContent = "已搜尋 100m 範圍。";
-    } catch (error) { $("#nearbyStatus").textContent = `附近資料載入失敗：${error.message}`; }
-    finally { $("#locateBtn").disabled = false; }
-  }, error => {
-    $("#nearbyStatus").textContent = error.code === 1 ? "你未允許定位；可以喺瀏覽器設定開啟。" : "暫時無法取得位置。";
-    $("#locateBtn").disabled = false;
-  }, { enableHighAccuracy:true, timeout:12000, maximumAge:30000 });
-}
-async function loadNearbyEtas(stops) {
-  state.nearby = [];
-  await parallel(stops, 4, async s => {
-    let rows = [];
-    try {
-      if (s.operator === "KMB") {
-        const j = await getJSON(`${KMB_API}/stop-eta/${encodeURIComponent(s.stop)}`, { ttl:20000 });
-        rows = (j.data || []).slice(0, 40).map(x => ({ operator:"KMB", route:x.route, dest:x.dest_tc || "", eta:x.eta, remark:x.rmk_tc || "", distance:s.distance, stopId:s.stop, stopName:s.stopObj.name_tc || "" }));
-      } else if (s.operator === "CTB") {
-        let j;
-        try { j = await getJSON(`https://rt.data.gov.hk/v1/transport/batch/stop-eta/CTB/${encodeURIComponent(s.stop)}`, { ttl:20000 }); }
-        catch {
-          const sr = await getJSON(`https://rt.data.gov.hk/v1.1/transport/batch/stop-route/CTB/${encodeURIComponent(s.stop)}`, { ttl:300000 });
-          const routes = [...new Set((sr.data || []).map(x => x.route).filter(Boolean))].slice(0, 15), temp = [];
-          await parallel(routes, 3, async route => { try { const e = await getJSON(`${CTB_API}/eta/ctb/${encodeURIComponent(s.stop)}/${encodeURIComponent(route)}`, { ttl:20000 }); temp.push(...(e.data || [])); } catch {} });
-          j = { data:temp };
-        }
-        rows = (j.data || []).slice(0, 50).map(x => ({ operator:"CTB", route:x.route, dest:x.dest_tc || "", eta:x.eta, remark:x.rmk_tc || "", distance:s.distance, stopId:s.stop, stopName:s.stopObj.name_tc || "" }));
-      } else {
-        const j = await getJSON(`${GMB_API}/eta/stop/${encodeURIComponent(s.stop)}`, { ttl:20000 });
-        for (const occurrence of j.data || []) {
-          if (occurrence.enabled === false) continue;
-          const route = state.gmbRoutes.find(r => String(r.routeId) === String(occurrence.route_id) && Number(r.routeSeq) === Number(occurrence.route_seq));
-          for (const e of occurrence.eta || []) rows.push({ operator:"GMB", route:route?.route || s.stopObj.routes?.find(x => String(x.routeId) === String(occurrence.route_id))?.route || "小巴", dest:route?.dest || "", eta:e.timestamp, remark:e.remarks_tc || "", distance:s.distance, stopId:s.stop, stopName:s.stopObj.name_tc || "" });
-        }
-      }
-    } catch { return; }
-    state.nearby.push(...rows.filter(x => validFutureEta(x.eta)));
-  });
-  const seen = new Set();
-  state.nearby = state.nearby.sort((a,b) => new Date(a.eta) - new Date(b.eta)).filter(x => {
-    const key = [x.operator,x.route,x.eta,x.stopId,x.dest].join("|");
-    if (seen.has(key)) return false; seen.add(key); return true;
-  });
-  state.nearbyExpanded = false; renderNearby();
-}
+// Nearby lookup is owned by v404-nearby-hotfix.js. Keeping it in one module
+// prevents the legacy multi-operator fan-out from being re-attached to this button.
 function renderNearby() {
   const all = state.nearby.filter(x => state.nearbyFilter === "all" || x.operator === state.nearbyFilter);
   const list = all.slice(0, state.nearbyExpanded ? MAX_NEARBY_COUNT : SHORT_NEARBY_COUNT);
@@ -379,7 +317,6 @@ $("#routeSearch").addEventListener("keydown", e => { if (e.key === "Enter") rend
 $("#routeSearch").addEventListener("input", () => { if ($("#routeSearch").value.trim().length >= 2) renderSearch(); });
 $("#backBtn").addEventListener("click", () => { $("#routeSection").classList.add("hidden"); $("#resultsSection").classList.remove("hidden"); });
 $("#clearFavs").addEventListener("click", () => { state.favorites = []; saveFavorites(); renderFavorites(); });
-$("#locateBtn").addEventListener("click", locateNearby);
 $("#nearbyMore").addEventListener("click", toggleNearby);
 $("#nearbyCollapseTop").addEventListener("click", toggleNearby);
 $$("[data-near-filter]").forEach(b => b.addEventListener("click", () => { state.nearbyFilter = b.dataset.nearFilter; state.nearbyExpanded = false; $$("[data-near-filter]").forEach(x => x.classList.toggle("active", x === b)); renderNearby(); }));
