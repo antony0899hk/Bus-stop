@@ -80,13 +80,23 @@ function stopMapFor(op) {
   return op === "KMB" ? state.kmbStops : op === "CTB" ? state.ctbStops : state.gmbStops;
 }
 
+let stopCatalogPromise = null;
+async function ensureStopCatalog() {
+  if (state.kmbStops.size && state.ctbStops.size) return;
+  if (stopCatalogPromise) return stopCatalogPromise;
+  stopCatalogPromise = Promise.allSettled([
+    getJSON("./kmb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.kmbStops.set(String(s.stop), s))),
+    getJSON("./ctb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.ctbStops.set(String(s.stop), s)))
+  ]).finally(() => { stopCatalogPromise = null; });
+  return stopCatalogPromise;
+}
+window.ensureStopCatalog = ensureStopCatalog;
+
 async function bootstrap() {
   const errors = [];
   const jobs = [
     getJSON("./kmb-routes.json", { ttl: 3600000 }).then(j => state.kmbRoutes = j.data || []).catch(() => errors.push("九巴路線")),
-    getJSON("./kmb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.kmbStops.set(String(s.stop), s))).catch(() => errors.push("九巴站點")),
-    getJSON("./ctb-routes.json", { ttl: 3600000 }).then(j => state.ctbRoutes = j.data || []).catch(() => errors.push("城巴路線")),
-    getJSON("./ctb-stops.json", { ttl: 3600000 }).then(j => (j.data || []).forEach(s => state.ctbStops.set(String(s.stop), s))).catch(() => errors.push("城巴站點"))
+    getJSON("./ctb-routes.json", { ttl: 3600000 }).then(j => state.ctbRoutes = j.data || []).catch(() => errors.push("城巴路線"))
   ];
   await Promise.allSettled(jobs);
   const total = normalizedRoutes().length;
@@ -144,6 +154,7 @@ async function openRoute(r) {
   state.selectedRoute = r;
   $("#resultsSection").classList.add("hidden");
   $("#routeSection").classList.remove("hidden");
+  if (r.operator === "KMB" || r.operator === "CTB") await ensureStopCatalog();
   await renderRouteDetail();
 }
 function variants(r) {

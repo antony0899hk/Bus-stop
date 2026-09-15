@@ -14,15 +14,15 @@
 
   function insertNearest(list,row){list.push(row);list.sort((a,b)=>a.distance-b.distance);if(list.length>MAX_STOPS)list.pop();}
   async function nearestStops(pos,radius,token){
+    const response=await fetch(`./nearby-stops-lite.json?v=${encodeURIComponent(window.DZ_BUILD||VERSION)}`,{cache:"no-store"});
+    if(!response.ok)throw new Error(`nearby index HTTP ${response.status}`);
+    const index=(await response.json()).data||[];
     const found=[];
-    for(const [operator,map] of [["KMB",state.kmbStops],["CTB",state.ctbStops]]){
-      let i=0;
-      for(const [id,stop] of map||[]){
-        if(token!==searchToken)return [];
-        const c=point(stop);
-        if(c){const distance=distanceMeters(pos.lat,pos.lon,c.lat,c.lon);if(Number.isFinite(distance)&&distance<=radius)insertNearest(found,{operator,id:String(id),stop,name:nameOf(stop),distance});}
-        if((++i%700)===0)await pause();
-      }
+    for(let i=0;i<index.length;i++){
+      if(token!==searchToken)return [];
+      const stop=index[i],distance=distanceMeters(pos.lat,pos.lon,Number(stop.a),Number(stop.b));
+      if(Number.isFinite(distance)&&distance<=radius)insertNearest(found,{operator:stop.o,id:String(stop.i),lat:Number(stop.a),lon:Number(stop.b),name:stop.n||"",distance});
+      if((i%700)===699)await pause();
     }
     return found;
   }
@@ -38,10 +38,10 @@
       const rows=[];
       if(stop.operator==="KMB"){
         const j=await fetchJson(`${KMB_API}/stop-eta/${encodeURIComponent(stop.id)}`);
-        for(const x of j.data||[]){if(validFutureEta(x.eta))rows.push({operator:"KMB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:stop.distance,stopId:stop.id,stopName:stop.name});if(rows.length>=MAX_ROWS_PER_STOP)break;}
+        for(const x of j.data||[]){if(validFutureEta(x.eta))rows.push({operator:"KMB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:stop.distance,stopId:stop.id,stopName:stop.name,lat:stop.lat,lon:stop.lon});if(rows.length>=MAX_ROWS_PER_STOP)break;}
       }else{
         const j=await fetchJson(`https://rt.data.gov.hk/v1/transport/batch/stop-eta/CTB/${encodeURIComponent(stop.id)}`);
-        for(const x of j.data||[]){if(validFutureEta(x.eta))rows.push({operator:"CTB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:stop.distance,stopId:stop.id,stopName:stop.name});if(rows.length>=MAX_ROWS_PER_STOP)break;}
+        for(const x of j.data||[]){if(validFutureEta(x.eta))rows.push({operator:"CTB",route:x.route,dest:x.dest_tc||"",eta:x.eta,remark:x.rmk_tc||"",distance:stop.distance,stopId:stop.id,stopName:stop.name,lat:stop.lat,lon:stop.lon});if(rows.length>=MAX_ROWS_PER_STOP)break;}
       }
       return rows;
     }catch{return [];}
