@@ -3,7 +3,7 @@
 
   // Stable nearby mode: one lightweight search owns the controls. It never
   // creates a duplicate all-Hong-Kong index or starts background ETA fan-out.
-  const VERSION="4.3.1";
+  const VERSION="4.3.2";
   const RADII=[100,200,400], MAX_STOPS=4, MAX_ROWS_PER_STOP=6;
   let selectedRadius=100, searchToken=0;
   const activeControllers=new Set();
@@ -17,18 +17,26 @@
     const found=[];
     // Read one operator at a time and discard it after scanning. This avoids
     // keeping a second all-Hong-Kong stop index resident in iPhone memory.
+    let loadedSources=0;
     for(const [operator,url] of [["KMB","./kmb-stops.json"],["CTB","./ctb-stops.json"]]){
       if(token!==searchToken)return [];
-      const index=(await fetchJson(`${url}?v=${encodeURIComponent(window.DZ_BUILD||VERSION)}`,7000)).data;
-      if(!Array.isArray(index))throw new Error("nearby source is invalid");
-      for(let i=0;i<index.length;i++){
+      try{
+        const index=(await fetchJson(`${url}?v=${encodeURIComponent(window.DZ_BUILD||VERSION)}`,7000)).data;
+        if(!Array.isArray(index))throw new Error("nearby source is invalid");
+        loadedSources++;
+        for(let i=0;i<index.length;i++){
+          if(token!==searchToken)return [];
+          const stop=index[i],p=point(stop);if(!p)continue;
+          const distance=distanceMeters(pos.lat,pos.lon,p.lat,p.lon);
+          if(Number.isFinite(distance)&&distance<=radius)insertNearest(found,{operator,id:String(stop.stop||stop.id||""),lat:p.lat,lon:p.lon,name:nameOf(stop),distance});
+          if((i%700)===699)await pause();
+        }
+      }catch(error){
         if(token!==searchToken)return [];
-        const stop=index[i],p=point(stop);if(!p)continue;
-        const distance=distanceMeters(pos.lat,pos.lon,p.lat,p.lon);
-        if(Number.isFinite(distance)&&distance<=radius)insertNearest(found,{operator,id:String(stop.stop||stop.id||""),lat:p.lat,lon:p.lon,name:nameOf(stop),distance});
-        if((i%700)===699)await pause();
+        try{console.warn(`Nearby ${operator} source failed`,error);}catch{}
       }
     }
+    if(!loadedSources)throw new Error("nearby sources unavailable");
     return found;
   }
   function abortActiveRequests(){for(const controller of activeControllers)controller.abort();activeControllers.clear();}
