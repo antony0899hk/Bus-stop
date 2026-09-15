@@ -3,7 +3,7 @@
 
   // Stable nearby mode: one lightweight search owns the controls. It never
   // creates a duplicate all-Hong-Kong index or starts background ETA fan-out.
-  const VERSION="4.2.0";
+  const VERSION="4.3.1";
   const RADII=[100,200,400], MAX_STOPS=4, MAX_ROWS_PER_STOP=6;
   let selectedRadius=100, searchToken=0;
   const activeControllers=new Set();
@@ -14,15 +14,20 @@
 
   function insertNearest(list,row){list.push(row);list.sort((a,b)=>a.distance-b.distance);if(list.length>MAX_STOPS)list.pop();}
   async function nearestStops(pos,radius,token){
-    const response=await fetch(`./nearby-stops-lite.json?v=${encodeURIComponent(window.DZ_BUILD||VERSION)}`,{cache:"no-store"});
-    if(!response.ok)throw new Error(`nearby index HTTP ${response.status}`);
-    const index=(await response.json()).data||[];
     const found=[];
-    for(let i=0;i<index.length;i++){
+    // Read one operator at a time and discard it after scanning. This avoids
+    // keeping a second all-Hong-Kong stop index resident in iPhone memory.
+    for(const [operator,url] of [["KMB","./kmb-stops.json"],["CTB","./ctb-stops.json"]]){
       if(token!==searchToken)return [];
-      const stop=index[i],distance=distanceMeters(pos.lat,pos.lon,Number(stop.a),Number(stop.b));
-      if(Number.isFinite(distance)&&distance<=radius)insertNearest(found,{operator:stop.o,id:String(stop.i),lat:Number(stop.a),lon:Number(stop.b),name:stop.n||"",distance});
-      if((i%700)===699)await pause();
+      const index=(await fetchJson(`${url}?v=${encodeURIComponent(window.DZ_BUILD||VERSION)}`,7000)).data;
+      if(!Array.isArray(index))throw new Error("nearby source is invalid");
+      for(let i=0;i<index.length;i++){
+        if(token!==searchToken)return [];
+        const stop=index[i],p=point(stop);if(!p)continue;
+        const distance=distanceMeters(pos.lat,pos.lon,p.lat,p.lon);
+        if(Number.isFinite(distance)&&distance<=radius)insertNearest(found,{operator,id:String(stop.stop||stop.id||""),lat:p.lat,lon:p.lon,name:nameOf(stop),distance});
+        if((i%700)===699)await pause();
+      }
     }
     return found;
   }
@@ -68,7 +73,12 @@
         state.nearby=merge(rows);state.nearbyExpanded=false;
         if(section)section.classList.remove("hidden");if(count)count.textContent=`${selectedRadius}m`;try{renderNearby();}catch{}
         if(status)status.textContent=stops.length?`已顯示 ${selectedRadius}m 內最近 ${stops.length} 個巴士站。`:`${selectedRadius}m 內未找到九巴／城巴站。`;
-      }catch{if(token===searchToken&&status)status.textContent="附近搜尋暫時未能完成，請稍後再試。";}
+      }catch(error){
+        // Keep the failure contained in this panel. A bad data response must
+        // never bubble up and cause Safari/PWA to reload the whole app.
+        if(token===searchToken&&status)status.textContent="附近站點資料未能讀取，請重新開啟 app 後再試。";
+        try{console.warn("Nearby search failed",error);}catch{}
+      }
       finally{clearNearbyResponses();finish(token,button);}
     },error=>{if(token===searchToken&&status)status.textContent=error.code===1?"你未允許定位。":"暫時無法取得位置。";finish(token,button);},{enableHighAccuracy:false,maximumAge:60000,timeout:8000});
   }
