@@ -1,0 +1,37 @@
+name: Food Radar v5.7 one-shot patch
+on:
+  push:
+    paths:
+      - '.github/workflows/food-radar-v57.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Food Radar
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('labs/food-radar/index.html')
+          s=p.read_text()
+          s=s.replace('CEGO Food Radar V5.6','CEGO Food Radar V5.7')
+          s=s.replace('v5.6 時間策略：','v5.7 搜尋＋時間策略：')
+          s=s.replace('Food Radar v5.6','Food Radar v5.7')
+          old="function clearMarkers(){S.markers.forEach(m=>m.remove());S.markers=[]}function render(){clearMarkers();let a=S.places;if(S.type)"
+          new="function clearMarkers(){S.markers.forEach(m=>m.remove());S.markers=[]}function render(){clearMarkers();let a=S.places.filter(x=>!Number.isFinite(x.d)||x.d<=S.radius);if(S.type)"
+          if old not in s: raise SystemExit('render anchor not found')
+          s=s.replace(old,new,1)
+          old2="badge.innerHTML=`附近取得 ${a.length} 間<br><small>🦊 撳號碼直接行過去</small>`;if(!a.length){results.innerHTML='<div class=\"empty\">暫時未取得附近店舖，可以擴大搜尋距離。</div>';return}"
+          new2="badge.innerHTML=`${S.radius}m 內找到 ${a.length} 間<br><small>🦊 撳號碼直接行過去</small>`;if(!a.length){const next=S.radius<100?100:S.radius<200?200:S.radius<300?300:S.radius<500?500:null;results.innerHTML=`<div class=\"empty\">${S.radius}m 內暫時未取得店舖。${next?`<br><button class=\"chip\" id=\"expandNext\" style=\"margin-top:12px\">擴至 ${next}m</button>`:''}</div>`;const eb=document.querySelector('#expandNext');if(eb)eb.onclick=()=>{S.radius=next;rv.textContent=`搜尋 ${S.radius}m`;refresh()};return}"
+          if old2 not in s: raise SystemExit('empty anchor not found')
+          s=s.replace(old2,new2,1)
+          s=s.replace('店舖時間 ＞ Food Court ＞ 商場／街市／夜市官方場地時間 ＞ 未有提供。','先嚴格按所選距離顯示；冇結果先逐級擴大。店舖時間 ＞ Food Court ＞ 商場／街市／夜市官方場地時間 ＞ 未有提供。',1)
+          p.write_text(s)
+          PY
+          git config user.name 'CEGO Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add labs/food-radar/index.html
+          git commit -m 'Food Radar v5.7: enforce selected radius and progressive expand CTA'
+          git push
