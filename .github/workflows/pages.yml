@@ -26,6 +26,8 @@ jobs:
         run: node scripts/generate-gmb-data.mjs
       - name: Build local-first runtime bundles
         run: node scripts/build-runtime-bundles.mjs
+      - name: Build official railway station coordinates
+        run: node scripts/build-mtr-stations.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
