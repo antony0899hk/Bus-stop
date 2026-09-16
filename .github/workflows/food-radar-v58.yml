@@ -1,0 +1,50 @@
+name: Food Radar v5.8 shop-sign join
+on:
+  push:
+    paths:
+      - '.github/workflows/food-radar-v58.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Food Radar with FEHD shop-sign join
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('labs/food-radar/index.html')
+          s=p.read_text()
+          s=s.replace('CEGO Food Radar V5.7','CEGO Food Radar V5.8')
+          s=s.replace('v5.7 搜尋＋時間策略：','v5.8 店名＋搜尋策略：')
+          s=s.replace('Food Radar v5.7','Food Radar v5.8')
+          old="const DATASET='fehd_rcd_1630036390312_58893',ARC=`https://portal.csdi.gov.hk/server/rest/services/common/${DATASET}/FeatureServer/0/query`,OVERPASS='https://overpass-api.de/api/interpreter',FOOT='https://routing.openstreetmap.de/routed-foot/route/v1/driving/';"
+          new="const DATASET='fehd_rcd_1630036390312_58893',ARC=`https://portal.csdi.gov.hk/server/rest/services/common/${DATASET}/FeatureServer/0/query`,OVERPASS='https://overpass-api.de/api/interpreter',FOOT='https://routing.openstreetmap.de/routed-foot/route/v1/driving/',FEHD_LOOKUP='./data/fehd-restaurants.json';"
+          if old not in s: raise SystemExit('constants anchor not found')
+          s=s.replace(old,new,1)
+          old="const S={lat:22.3193,lng:114.1694,radius:50,type:'',q:'',places:[],markers:[],ready:false,fehd:0,osm:0,error:'',walk:null,watch:null};"
+          new="const S={lat:22.3193,lng:114.1694,radius:50,type:'',q:'',places:[],markers:[],ready:false,fehd:0,osm:0,error:'',walk:null,watch:null,shopSigns:null,shopSignCount:0};"
+          if old not in s: raise SystemExit('state anchor not found')
+          s=s.replace(old,new,1)
+          anchor="function venueHint(address)"
+          inject="function normAddr(v){return String(v||'').toUpperCase().replace(/[，,。．.／/\\-–—()（）\\s]/g,'').trim()}async function loadShopSigns(){if(S.shopSigns)return S.shopSigns;try{const j=await fetch(FEHD_LOOKUP+'?v='+Date.now()).then(r=>{if(!r.ok)throw Error(r.status);return r.json()}),rows=j.rows||[],byLic={},byAdr={};for(const r of rows){if(r.licno)byLic[String(r.licno).trim()]=r;if(r.adr){const k=normAddr(r.adr);if(k&&!byAdr[k])byAdr[k]=r}}S.shopSignCount=rows.length;return S.shopSigns={byLic,byAdr}}catch(e){S.error+=(S.error?'｜':'')+'FEHD店名庫未有提供';return{byLic:{},byAdr:{}}}}function applyShopSigns(rows,lk){return rows.map(x=>{if(x.name!=='店名未有提供')return x;let r=x.licno?lk.byLic[String(x.licno).trim()]:null;if(!r&&x.address)r=lk.byAdr[normAddr(x.address)];return r&&r.ss?{...x,name:r.ss,source:'FEHD 官方店名'}:x})}\n"
+          if anchor not in s: raise SystemExit('venue anchor not found')
+          s=s.replace(anchor,inject+anchor,1)
+          old="return{name:nameOf(p),address:addrOf(p),type:fehdType(p),food:'',hours:'',openStatus:{open:null,label:'營業時間未有提供'},lat:g?.lat??null,lng:g?.lng??null,d:g?dist(S.lat,S.lng,g.lat,g.lng):null,source:'FEHD'}"
+          new="return{name:nameOf(p),address:addrOf(p),licno:val(p,['LICNO','LICENCE_NO','LICENSE_NO','LIC_NO','LICENCE_NUMBER']),type:fehdType(p),food:'',hours:'',openStatus:{open:null,label:'營業時間未有提供'},lat:g?.lat??null,lng:g?.lng??null,d:g?dist(S.lat,S.lng,g.lat,g.lng):null,source:'FEHD'}"
+          if old not in s: raise SystemExit('mapFEHD anchor not found')
+          s=s.replace(old,new,1)
+          old="const [f,o]=await Promise.all([loadFEHD(),loadOSM()]);S.places=[...merge(f,o),...o].sort((a,b)=>(a.d??999999)-(b.d??999999));render()"
+          new="const [f,o,lk]=await Promise.all([loadFEHD(),loadOSM(),loadShopSigns()]);const named=applyShopSigns(f,lk);S.places=[...merge(named,o),...o].sort((a,b)=>(a.d??999999)-(b.d??999999));render()"
+          if old not in s: raise SystemExit('refresh anchor not found')
+          s=s.replace(old,new,1)
+          s=s.replace("status.textContent=`FEHD ${S.fehd}・OSM ${S.osm}${S.error?'｜'+S.error:''}`","status.textContent=`FEHD ${S.fehd}・店名庫 ${S.shopSignCount}・OSM ${S.osm}${S.error?'｜'+S.error:''}`",1)
+          s=s.replace('先嚴格按所選距離顯示；冇結果先逐級擴大。','FEHD 官方 XML 店號先補真正店名；再嚴格按所選距離顯示，冇結果先逐級擴大。',1)
+          p.write_text(s)
+          PY
+          git config user.name 'CEGO Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add labs/food-radar/index.html
+          git commit -m 'Food Radar v5.8: join official FEHD shop signs and keep strict radius'
+          git push
