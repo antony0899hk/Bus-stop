@@ -109,10 +109,10 @@ async function bootstrap() {
 }
 
 function normalizedRoutes() {
-  const kmb = state.kmbRoutes.map(r => ({ operator:"KMB", route:r.route, orig:r.orig_tc || "", dest:r.dest_tc || "", bound:r.bound, serviceType:r.service_type }));
+  const kmb = state.kmbRoutes.map(r => ({ operator:"KMB", route:r.route, orig:r.orig_tc || "", dest:r.dest_tc || "", bound:r.bound, serviceType:r.service_type, schedule:r.schedule }));
   const ctb = state.ctbRoutes.flatMap(r => [
-    { operator:"CTB", route:r.route, orig:r.orig_tc || "", dest:r.dest_tc || "", bound:"O", serviceType:"1" },
-    { operator:"CTB", route:r.route, orig:r.dest_tc || "", dest:r.orig_tc || "", bound:"I", serviceType:"1" }
+    { operator:"CTB", route:r.route, orig:r.orig_tc || "", dest:r.dest_tc || "", bound:"O", serviceType:"1", schedule:r.schedule?.outbound },
+    { operator:"CTB", route:r.route, orig:r.dest_tc || "", dest:r.orig_tc || "", bound:"I", serviceType:"1", schedule:r.schedule?.inbound }
   ]);
   const gmb = state.gmbRoutes.map(r => ({ ...r, operator:"GMB", serviceType:String(r.routeSeq || r.serviceType || 1), bound:r.bound || (Number(r.routeSeq) === 1 ? "O" : "I") }));
   return [...kmb, ...ctb, ...gmb];
@@ -162,10 +162,31 @@ function variants(r) {
   return normalizedRoutes().filter(x => x.operator === r.operator && String(x.route) === String(r.route))
     .filter(x => { const k = `${x.bound}|${x.routeId || ""}|${x.serviceType}|${x.dest}`; if (seen.has(k)) return false; seen.add(k); return true; });
 }
+function routeServiceSummary(r) {
+  // Timetables describe departures at the terminus, never live stop ETA.
+  const s = r.schedule;
+  let body = '<strong>時間表未接入</strong>';
+  if (s && Array.isArray(s.periods) && s.periods.length) {
+    body = s.periods.map(p => {
+      const day = escapeHtml(p.days || '');
+      const times = Array.isArray(p.departures) && p.departures.length
+        ? p.departures.map(escapeHtml).join('、')
+        : [p.first, p.last].every(Boolean) ? escapeHtml(p.first) + '–' + escapeHtml(p.last) : '時間未提供';
+      const frequency = p.headway ? '<span>' + escapeHtml(p.headway) + ' 分鐘一班</span>' : '';
+      return '<div class="service-period"><small>' + day + '</small><strong>' + times + '</strong>' + frequency + '</div>';
+    }).join('');
+  }
+  let link = '';
+  if (r.operator === 'KMB') link = 'https://search.kmb.hk/KMBWebSite/?action=routesearch&lang=zh-hk&route=' + encodeURIComponent(r.route);
+  if (r.operator === 'CTB') link = 'https://www.citybus.com.hk/';
+  if (link) body += '<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer">官方時間表 ↗</a>';
+  return '<div class="route-next-arrival route-service"><small>服務時間／總站開車</small>' + body + '</div>';
+}
+
 async function renderRouteDetail() {
   const r = state.selectedRoute;
   if (!r) return;
-  $("#routeHeader").innerHTML = `<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(r.route)}</div><div class="dest">${escapeHtml(r.orig)} ↔ ${escapeHtml(r.dest)}</div><div class="route-meta">${operatorBadge(r.operator)}<span class="dz-full-fare">車費載入中</span></div></div><div class="route-next-arrival"><small>最快到站</small><strong id="routeNextEta">載入中</strong></div></div>`;
+  $("#routeHeader").innerHTML = `<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(r.route)}</div><div class="dest">${escapeHtml(r.orig)} ↔ ${escapeHtml(r.dest)}</div><div class="route-meta">${operatorBadge(r.operator)}<span class="dz-full-fare">車費載入中</span></div></div>${routeServiceSummary(r)}</div>`;
   const vv = variants(r);
   $("#directionTabs").innerHTML = vv.slice(0, 6).map((x, i) => `<button data-variant="${i}" class="${x.bound === r.bound && x.dest === r.dest && x.routeId === r.routeId ? "active" : ""}">往 ${escapeHtml(x.dest)}</button>`).join("");
   $$("[data-variant]").forEach(b => b.addEventListener("click", () => { const x = vv[Number(b.dataset.variant)]; if (x) { state.selectedRoute = x; renderRouteDetail(); } }));
@@ -230,10 +251,6 @@ function renderStopRows(stops, r, op) {
 }
 function fillEta(stopId, rows) {
   const row = $(`.stop-row[data-stop-id="${CSS.escape(String(stopId))}"]`); if (!row) return;
-  const future = rows.filter(e => validFutureEta(e.eta)).map(e => new Date(e.eta).getTime());
-  if (future.length) row.dataset.nextEta = String(Math.min(...future)); else delete row.dataset.nextEta;
-  const next = [...document.querySelectorAll("#stops [data-next-eta]")].map(el => Number(el.dataset.nextEta)).filter(Number.isFinite);
-  const summary = $("#routeNextEta"); if (summary) summary.textContent = next.length ? etaLabel(new Date(Math.min(...next)).toISOString()) : "未有預報";
   row.querySelector(".etas").innerHTML = rows.length ? rows.map(e => `<span class="eta-chip ${validFutureEta(e.eta) ? "live" : ""}">${escapeHtml(etaLabel(e.eta))}${e.rmk_tc ? `<small>${escapeHtml(e.rmk_tc)}</small>` : ""}</span>`).join("") : '<span class="eta-chip">未有預報</span>';
 }
 function favKey(op, route, bound, serviceType, stopId, routeId="", stopSeq="") { return [op,route,bound,serviceType,stopId,routeId,stopSeq].join("|"); }
