@@ -1,0 +1,44 @@
+name: Food Radar FEHD shop-sign sync
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '45 1 * * *'
+  push:
+    paths:
+      - '.github/workflows/food-radar-fehd-sync.yml'
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download and build compact FEHD lookup
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const url='https://www.fehd.gov.hk/tc_chi/licensing/license/text/LP_Restaurants_TC.XML';
+          const decode=s=>s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").trim();
+          const tag=(b,n)=>{const m=b.match(new RegExp(`<${n}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${n}>`,'i'));return m?decode(m[1].replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').trim():''};
+          fetch(url,{headers:{'user-agent':'CEGO-Food-Radar/1.0'}}).then(r=>{if(!r.ok)throw Error(r.status);return r.text()}).then(xml=>{
+            const rows=[];
+            for(const m of xml.matchAll(/<LP(?:\s[^>]*)?>([\s\S]*?)<\/LP>/gi)){
+              const b=m[1],licno=tag(b,'LICNO'),ss=tag(b,'SS'),adr=tag(b,'ADR'),type=tag(b,'TYPE'),exp=tag(b,'EXPDATE');
+              if(ss||adr)rows.push({licno,ss,adr,type,exp});
+            }
+            fs.mkdirSync('labs/food-radar/data',{recursive:true});
+            fs.writeFileSync('labs/food-radar/data/fehd-restaurants.json',JSON.stringify({generatedAt:new Date().toISOString(),source:'FEHD official XML',rows}));
+            console.log('restaurants',rows.length,'with shop sign',rows.filter(x=>x.ss).length);
+          });
+          NODE
+      - name: Commit lookup
+        run: |
+          git config user.name 'CEGO Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add labs/food-radar/data/fehd-restaurants.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh FEHD restaurant shop signs'
+          git push
