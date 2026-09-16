@@ -4,6 +4,9 @@ on:
     paths:
       - 'scripts/build-mtr-stations.mjs'
       - 'nearby.js'
+      - 'mtr-bus.js'
+      - 'tests/**'
+      - '.github/workflows/nearby-mtr-check.yml'
 permissions:
   contents: read
 jobs:
