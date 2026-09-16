@@ -94,12 +94,16 @@
       if (!meta?.fullFare) throw new Error("fare unavailable");
       const label = `全程 $${Number(meta.fullFare).toFixed(1)}`;
       cells.forEach(el => { if (el.isConnected) el.textContent = label; });
-      const header = document.querySelector("#routeHeader .route-title");
-      if (header && !header.querySelector(".dz-full-fare")) {
-        const fare = document.createElement("div"); fare.className = "dz-full-fare"; fare.textContent = label; header.appendChild(fare);
+      if (state.selectedRoute !== r) return;
+      const header = document.querySelector("#routeHeader .route-meta");
+      if (header) {
+        let el = header.querySelector(".dz-full-fare");
+        if (!el) { el = document.createElement("span"); el.className = "dz-full-fare"; header.appendChild(el); }
+        el.textContent = label;
       }
     } catch {
       cells.forEach(el => { if (el.isConnected) el.textContent = "車費 —"; });
+      if (state.selectedRoute === r) { const el = document.querySelector("#routeHeader .route-meta .dz-full-fare"); if (el) el.textContent = "車費 —"; }
     }
   }
 
