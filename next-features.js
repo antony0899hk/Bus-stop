@@ -113,48 +113,6 @@
     } catch (e) { status.textContent="未能取得目前位置或搜尋路線，請檢查 Safari 定位權限後再試。"; }
   }
 
-  async function fareForNearby(x){
-    if (!x || typeof loadFareXml!=="function" || typeof routeFareRecords!=="function" || typeof buildFareMap!=="function") return null;
-    const key=`${x.operator}|${x.route}`;
-    if (fareCache.has(key)) return fareCache.get(key);
-    const p=(async()=>{
-      try{
-        const xml=await loadFareXml(x.operator);
-        const rec=routeFareRecords(xml,{operator:x.operator,route:x.route});
-        if(!rec.length) return null;
-        const map=buildFareMap(rec);
-        const exact=Number(x.stopSeq||x.seq||0);
-        if(exact && map.has(exact)) return {fare:map.get(exact), exact:true};
-        const full=map.get(1) ?? rec.map(r=>Number(r.fare)).filter(Number.isFinite).sort((a,b)=>b-a)[0];
-        return Number.isFinite(full)?{fare:full,exact:false}:null;
-      }catch{return null;}
-    })();
-    fareCache.set(key,p); return p;
-  }
-
-  function matchingNearby(card){
-    if(typeof state==="undefined" || !Array.isArray(state.nearby)) return null;
-    const route=card.querySelector(".near-route")?.textContent?.trim();
-    const meta=card.querySelector(".near-meta")?.textContent||"";
-    const name=meta.split("·")[0].trim();
-    return state.nearby.find(v=>String(v.route)===String(route)&&String(v.stopName)===String(name)) || state.nearby.find(v=>String(v.route)===String(route));
-  }
-
-  function decorateNearbyCards(){
-    qa("#nearbyResults .near-card").forEach(card=>{
-      if(card.dataset.dzReady) return;
-      const x=matchingNearby(card); if(!x) return;
-      card.dataset.dzReady="1"; card.dataset.stopId=String(x.stopId||""); card.dataset.operator=String(x.operator||"");
-      card.setAttribute("role","button"); card.setAttribute("tabindex","0");
-      const meta=card.querySelector(".near-meta");
-      if(meta && !meta.querySelector(".near-fare")) meta.insertAdjacentHTML("beforeend", ' <span class="near-fare">· 車費載入中</span>');
-      fareForNearby(x).then(f=>{
-        const el=card.querySelector(".near-fare"); if(!el||!card.isConnected)return;
-        el.textContent=f?`· ${f.exact?"車費":"全程"} $${Number(f.fare).toFixed(1)}`:"";
-      });
-    });
-  }
-
   document.addEventListener("click", e=>{
     const swap=e.target.closest("#journeySwapBtn"); if(swap){ const a=q("#journeyFrom"),b=q("#journeyTo"); [a.value,b.value]=[b.value,a.value]; if(typeof journeyState!=="undefined" && a.value!=="我的位置") journeyState.originLocation=null; return; }
     const add=e.target.closest("[data-add-quick]"); if(add){ e.preventDefault(); return openEditor(); }
@@ -165,6 +123,6 @@
   document.addEventListener("keydown",e=>{ const card=e.target.closest?.("#nearbyResults .near-card[data-stop-id]"); if(card && (e.key==="Enter"||e.key===" ")){e.preventDefault();card.click();} });
   document.addEventListener("contextmenu",e=>{ const b=e.target.closest("[data-quick]"); if(!b)return; e.preventDefault(); openEditor(b.dataset.quick); });
   q("#journeySearchBtn")?.addEventListener("click",()=>{remember(q("#journeyFrom")?.value);remember(q("#journeyTo")?.value);},true);
-  const mo=new MutationObserver(()=>decorateNearbyCards()); mo.observe(document.documentElement,{subtree:true,childList:true});
+
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",installUI,{once:true}); else installUI();
 })();
