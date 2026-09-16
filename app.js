@@ -165,7 +165,7 @@ function variants(r) {
 async function renderRouteDetail() {
   const r = state.selectedRoute;
   if (!r) return;
-  $("#routeHeader").innerHTML = `<div class="route-title"><div><div class="number">${escapeHtml(r.route)}</div><div class="dest">${escapeHtml(r.orig)} ↔ ${escapeHtml(r.dest)}</div>${operatorBadge(r.operator)}</div></div>`;
+  $("#routeHeader").innerHTML = `<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(r.route)}</div><div class="dest">${escapeHtml(r.orig)} ↔ ${escapeHtml(r.dest)}</div><div class="route-meta">${operatorBadge(r.operator)}<span class="dz-full-fare">車費載入中</span></div></div><div class="route-next-arrival"><small>最快到站</small><strong id="routeNextEta">載入中</strong></div></div>`;
   const vv = variants(r);
   $("#directionTabs").innerHTML = vv.slice(0, 6).map((x, i) => `<button data-variant="${i}" class="${x.bound === r.bound && x.dest === r.dest && x.routeId === r.routeId ? "active" : ""}">往 ${escapeHtml(x.dest)}</button>`).join("");
   $$("[data-variant]").forEach(b => b.addEventListener("click", () => { const x = vv[Number(b.dataset.variant)]; if (x) { state.selectedRoute = x; renderRouteDetail(); } }));
@@ -230,6 +230,10 @@ function renderStopRows(stops, r, op) {
 }
 function fillEta(stopId, rows) {
   const row = $(`.stop-row[data-stop-id="${CSS.escape(String(stopId))}"]`); if (!row) return;
+  const future = rows.filter(e => validFutureEta(e.eta)).map(e => new Date(e.eta).getTime());
+  if (future.length) row.dataset.nextEta = String(Math.min(...future)); else delete row.dataset.nextEta;
+  const next = [...document.querySelectorAll("#stops [data-next-eta]")].map(el => Number(el.dataset.nextEta)).filter(Number.isFinite);
+  const summary = $("#routeNextEta"); if (summary) summary.textContent = next.length ? etaLabel(new Date(Math.min(...next)).toISOString()) : "未有預報";
   row.querySelector(".etas").innerHTML = rows.length ? rows.map(e => `<span class="eta-chip ${validFutureEta(e.eta) ? "live" : ""}">${escapeHtml(etaLabel(e.eta))}${e.rmk_tc ? `<small>${escapeHtml(e.rmk_tc)}</small>` : ""}</span>`).join("") : '<span class="eta-chip">未有預報</span>';
 }
 function favKey(op, route, bound, serviceType, stopId, routeId="", stopSeq="") { return [op,route,bound,serviceType,stopId,routeId,stopSeq].join("|"); }
