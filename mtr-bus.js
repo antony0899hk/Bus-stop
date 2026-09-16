@@ -47,33 +47,13 @@
   }
   function allStops(route){return (route?.directions||[]).flatMap(d=>(d.stops||[]).map(s=>({...s,bound:d.bound})));}
 
-  async function nearby(pos,radius=100){
-    const region=regionForPosition(pos);if(!region)return [];
-    const bundle=await loadBundle(region),candidates=[];
-    for(const route of bundle.routes||[]){
-      for(const s of allStops(route)){
-        const d=distanceMeters(pos.lat,pos.lon,Number(s.lat),Number(s.long));
-        if(Number.isFinite(d)&&d<=radius)candidates.push({route,stop:s,distance:d});
-      }
-    }
-    const byRoute=new Map();for(const c of candidates){const k=c.route.route;if(!byRoute.has(k)||c.distance<byRoute.get(k).distance)byRoute.set(k,c);}
-    const out=[];
-    for(const c of [...byRoute.values()].slice(0,3)){
-      try{
-        const data=await schedule(c.route.route),mins=minutesForStop(data,c.stop.id);if(!mins.length)continue;
-        out.push({operator:"MTRB",route:c.route.route,dest:c.route.dest||"",eta:new Date(Date.now()+mins[0]*60000).toISOString(),distance:c.distance,stopId:c.stop.id,stopName:c.stop.name_tc||c.stop.id,lat:c.stop.lat,lon:c.stop.long,mtrBusRegion:region});
-      }catch{}
-    }
-    return out.sort((a,b)=>new Date(a.eta)-new Date(b.eta));
-  }
-
   async function renderRoute(r){
     const region=r.region||ROUTE_REGION[String(r.route).toUpperCase()],bundle=await loadBundle(region),meta=routeMeta(r.route,bundle);
     if(!meta)throw new Error("暫時未有路線資料");
     state.selectedRoute={...r,...meta};
     $('#resultsSection')?.classList.add('hidden');$('#routeSection')?.classList.remove('hidden');
-    $('#routeHeader').innerHTML=`<div class="route-title"><div><div class="number">${escapeHtml(meta.route)}</div><div class="dest">${escapeHtml(meta.orig)} ↔ ${escapeHtml(meta.dest)}</div>${badge()}${Number.isFinite(meta.fare)?`<div class="route-sub">全程 $${Number(meta.fare).toFixed(1)}</div>`:''}</div></div>`;
-    const dirs=meta.directions||[];let active=0;
+    $('#routeHeader').innerHTML=`<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(meta.route)}</div><div class="dest">${escapeHtml(meta.orig)} ↔ ${escapeHtml(meta.dest)}</div><div class="route-meta">${badge()}${Number.isFinite(meta.fare)?`<span class="dz-full-fare">全程 $${Number(meta.fare).toFixed(1)}</span>`:''}</div></div>${typeof routeServiceSummary==='function'?routeServiceSummary(meta):''}</div>`;
+    const dirs=meta.directions||[];let active=Math.max(0,dirs.findIndex(d=>d.bound===r.bound));
     const paint=async()=>{
       $('#directionTabs').innerHTML=dirs.map((d,i)=>`<button data-mtrb-dir="${i}" class="${i===active?'active':''}">往 ${escapeHtml(d.stops?.at(-1)?.name_tc||meta.dest)}</button>`).join('');
       const dir=dirs[active]||{stops:[]};$('#stops').innerHTML='<div class="loading">正在載入港鐵巴士 ETA…</div>';
@@ -97,5 +77,5 @@
     }
   }
   installFilters();
-  window.dzMtrBus={version:VERSION,routes:ROUTES,regionForPosition,loadBundle,schedule,nearby,renderRoute,stopCoords:async row=>({lat:Number(row.lat),lon:Number(row.lon),name:row.stopName||row.route})};
+  window.dzMtrBus={version:VERSION,routes:ROUTES,regionForPosition,loadBundle,schedule,renderRoute,stopCoords:async row=>({lat:Number(row.lat),lon:Number(row.lon),name:row.stopName||row.route})};
 })();
