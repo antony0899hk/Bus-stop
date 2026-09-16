@@ -69,6 +69,7 @@
         const d=j.data?.[line+'-'+s.code];let trains='';
         for(const direction of ['UP','DOWN'])for(const t of d?.[direction]||[]){
           const raw=String(t.time||'');const eta=raw.includes('T')?raw:raw.replace(' ','T')+'+08:00';
+          if(!validFutureEta(eta))continue;
           const dest=t.dest;
           const name=railNames.get(dest)||dest||'';
           trains+='<div class="stop-row"><div>🚇</div><div><div class="stop-name">往 '+escapeHtml(name)+'</div><div class="etas"><span class="eta-chip">'+escapeHtml(etaLabel(eta))+'</span></div></div><div>'+escapeHtml(t.plat?'月台 '+t.plat:'')+'</div></div>';
@@ -139,7 +140,7 @@
           if(stop.operator==='MTRB'){
             if(!Array.isArray(j.busStop))throw Error('invalid MTR bus response');
             const s=j.busStop.find(x=>String(x.busStopId)===stop.stopId);
-            const seconds=(s?.bus||[]).map(b=>Number(b.arrivalTimeInSecond ?? b.departureTimeInSecond)).filter(n=>Number.isFinite(n)&&n>=0);
+            const seconds=(s?.bus||[]).map(b=>{const a=b.arrivalTimeInSecond==null?NaN:Number(b.arrivalTimeInSecond),d=b.departureTimeInSecond==null?NaN:Number(b.departureTimeInSecond);return Number.isFinite(a)&&a>=0?a:d;}).filter(n=>Number.isFinite(n)&&n>=0);
             rows.set(stop.key,{...stop,eta:seconds.length?new Date(Date.now()+Math.min(...seconds)*1000).toISOString():null});
           }else{
             if (!Array.isArray(j.data)) throw Error('invalid ETA response');
