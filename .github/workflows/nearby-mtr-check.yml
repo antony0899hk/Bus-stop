@@ -15,3 +15,7 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/build-mtr-stations.mjs
+      - run: node --check nearby.js
+      - run: node --check mtr-bus.js
+      - run: node tests/nearby.cjs
+      - run: node tests/nearby-mtr.cjs
