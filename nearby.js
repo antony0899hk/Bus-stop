@@ -1,7 +1,8 @@
 (() => {
   'use strict';
   const $ = s => document.querySelector(s);
-  let radius = 100, generation = 0, shown = 20;
+  let radius = 50, generation = 0, shown = 20;
+  const selectedDirections = new Map();
   const controllers = new Set();
   const pause = () => new Promise(r => setTimeout(r, 0));
   function cancel() { generation++; for (const c of controllers) c.abort(); controllers.clear(); const button=$('#locateBtn'); if(button)button.disabled=false; }
@@ -81,14 +82,46 @@
     if(!html)host.innerHTML='<div class="empty">暫時未有列車預報</div>';
   }
 
+
+  const normalizeRoute = value => String(value || '').trim().toUpperCase();
+  const normalizeDest = value => String(value || '').normalize('NFKC').replace(/\s+/g,'').trim();
+  function groupRoutes(input) {
+    const groups = new Map();
+    for (const row of input) {
+      const route = normalizeRoute(row.route);
+      const key = row.kind === 'rail' ? 'MTR|'+row.stopId : [row.operator,row.operator==='GMB'?(row.region||''):'',route].join('|');
+      if (!groups.has(key)) groups.set(key,{key,operator:row.operator,route:row.route,directions:[]});
+      const group=groups.get(key);
+      const directionKey=row.kind==='rail'?String(row.stopId):[row.bound||'',normalizeDest(row.dest)].join('|');
+      const existing=group.directions.find(x=>x.directionKey===directionKey);
+      if(!existing) group.directions.push({...row,directionKey,members:[row]});
+      else {
+        existing.members.push(row);
+        const oldTime=existing.eta?new Date(existing.eta).getTime():Infinity;
+        const newTime=row.eta?new Date(row.eta).getTime():Infinity;
+        if(newTime<oldTime || (newTime===oldTime && row.distance<existing.distance)){
+          const members=existing.members;Object.assign(existing,row,{directionKey,members});
+        }
+      }
+    }
+    return [...groups.values()];
+  }
+  function visibleGroups(){return groupRoutes(state.nearby.filter(x=>state.nearbyFilter==='all'||x.operator===state.nearbyFilter));}
+  function activeRow(group) {
+    return group.directions.find(x=>x.directionKey===selectedDirections.get(group.key)) || group.directions[0];
+  }
   function render() {
-    const rows = state.nearby.filter(x => state.nearbyFilter === 'all' || x.operator === state.nearbyFilter);
+    const groups=visibleGroups();
     $('#nearbySection').classList.remove('hidden');
-    $('#nearbyCount').textContent = `共 ${rows.length} 個路線／車站`;
-    $('#nearbyResults').innerHTML = rows.slice(0,shown).map(x => `<button type="button" class="near-card" data-near-key="${escapeHtml(x.key)}"><div>${operatorBadge(x.operator)}</div><div><div class="near-route">${escapeHtml(x.route)}</div><div class="near-dest">→ ${escapeHtml(x.dest || '目的地未提供')}</div><div class="near-meta">${escapeHtml(x.stopName)} · ${Math.round(x.distance)}m</div></div><div class="near-eta">${escapeHtml(x.kind === 'rail' ? '查看班次' : x.error ? '更新失敗' : etaLabel(x.eta))}</div></button>`).join('') || '<div class="empty">暫時未有路線資料；請查看上方搜尋狀態。</div>';
-    $('#nearbyMore').classList.toggle('hidden', rows.length <= shown);
-    $('#nearbyMore').textContent = `顯示更多（尚有 ${Math.max(0,rows.length-shown)} 條）`;
-    $('#nearbyCollapseTop').classList.toggle('hidden',shown <= 20);
+    $('#nearbyCount').textContent=`共 ${groups.length} 個路線／車站`;
+    $('#nearbyResults').innerHTML=groups.slice(0,shown).map(group=>{
+      const x=activeRow(group);
+      const toggle=x.kind!=='rail'&&group.directions.length>1 ? `<button type="button" class="near-direction-switch" data-near-switch="${escapeHtml(group.key)}" aria-label="${escapeHtml(x.route)} 切換方向" title="切換方向">⇄</button>` : '';
+      return `<article class="near-card near-route-group"><button type="button" class="near-main" data-near-key="${escapeHtml(x.key)}"><div>${operatorBadge(x.operator)}</div><div><div class="near-route">${escapeHtml(x.route)}</div><div class="near-dest">→ ${escapeHtml(x.dest||'目的地未提供')}</div><div class="near-meta">${escapeHtml(x.stopName)} · ${Math.round(x.distance)}m</div></div><div class="near-eta">${escapeHtml(x.kind==='rail'?'查看班次':x.error?'更新失敗':etaLabel(x.eta))}</div></button>${toggle}</article>`;
+    }).join('')||'<div class="empty">此範圍暫時未有結果，可撳「＋50 米」擴大搜尋。</div>';
+    $('#nearbyMore').classList.toggle('hidden',groups.length<=shown);
+    $('#nearbyMore').textContent=`顯示更多（尚有 ${Math.max(0,groups.length-shown)} 個）`;
+    $('#nearbyCollapseTop').classList.toggle('hidden',shown<=20);
   }
   function mergeRows(stop, data, rows) {
     for (const x of data) {
@@ -101,11 +134,11 @@
     }
   }
   async function findStops(pos, selected, token) {
-    const found = []; let sources = 0;
+    const found = []; const seenStops=new Set(); let sources = 0;
     for (const [operator,path] of [['KMB','kmb-stops.json'],['CTB','ctb-stops.json']]) {
       if (token !== generation) return {found:[],sources};
       try {
-        const j = await json(`./${path}?v=${window.DZ_BUILD || '5.2.0'}`);
+        const j = await json(`./${path}?v=${window.DZ_BUILD || '5.3.0'}`);
         if (!Array.isArray(j.data)) throw Error('invalid stop catalog');
         sources++;
         for (let i=0;i<j.data.length;i++) {
@@ -113,7 +146,8 @@
           const s=j.data[i], lat=Number(s.lat), lon=Number(s.long ?? s.lng ?? s.longitude);
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
           const distance=distanceMeters(pos.lat,pos.lon,lat,lon);
-          if (distance <= selected) found.push({operator,stopId:String(s.stop || s.id),stopName:s.name_tc || '',lat,lon,distance});
+          const id=String(s.stop||s.id),key=operator+'|'+id;
+          if(distance<=selected&&!seenStops.has(key)){seenStops.add(key);found.push({operator,stopId:id,stopName:s.name_tc||'',lat,lon,distance});}
           if (i%700===699) await pause();
         }
       } catch (e) { if (token !== generation) return {found:[],sources}; }
@@ -126,6 +160,7 @@
       const {found:busStops,sources} = await findStops({lat:position.coords.latitude,lon:position.coords.longitude},selected,token);
       if (token !== generation) return;
       const rows=new Map(); let completed=0, failed=0;
+      const mtrSchedules=new Map();
       const extra=await addMtr({lat:position.coords.latitude,lon:position.coords.longitude},selected,token,rows);
       if(token!==generation)return;
       const stops=[...busStops,...extra.stops];
@@ -135,7 +170,11 @@
         status.textContent=`${selected}m：已讀取 ${completed}/${stops.length} 個站／路線（九巴／城巴／港鐵巴士）`;
         try {
           const url=stop.operator==='KMB' ? `${KMB_API}/stop-eta/${encodeURIComponent(stop.stopId)}` : `https://rt.data.gov.hk/v1/transport/batch/stop-eta/CTB/${encodeURIComponent(stop.stopId)}`;
-          const j=stop.operator==='MTRB' ? await json('https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language:'zh',routeName:stop.route})}) : await json(url);
+          let j;
+          if(stop.operator==='MTRB'){
+            if(mtrSchedules.has(stop.route))j=mtrSchedules.get(stop.route);
+            else {j=await json('https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language:'zh',routeName:stop.route})});mtrSchedules.set(stop.route,j);}
+          }else j=await json(url);
           if (token !== generation) return;
           if(stop.operator==='MTRB'){
             if(!Array.isArray(j.busStop))throw Error('invalid MTR bus response');
@@ -152,26 +191,32 @@
       }
       if (token !== generation) return;
       render();
-      status.textContent=`${selected}m：${stops.length} 個站、${rows.size} 條回傳路線方向。九巴／城巴／港鐵／港鐵巴士${extra.failures.length?`；未能載入：${extra.failures.join("、")}`:""}${sources<2?'；部分站點來源載入失敗':''}${failed?`；${failed} 個站讀取失敗，結果未齊`:''}。未有 ETA 不代表停駛。`;
+      status.textContent=`${selected}m：${stops.length} 個站、${groupRoutes([...rows.values()]).length} 個路線／車站。九巴／城巴／港鐵／港鐵巴士${extra.failures.length?`；未能載入：${extra.failures.join("、")}`:""}${sources<2?'；部分站點來源載入失敗':''}${failed?`；${failed} 個站讀取失敗，結果未齊`:''}。未有 ETA 不代表停駛。`;
     } catch(e) { if (token===generation) status.textContent=`搜尋未完成：${e.message}，可再次搜尋。`; }
     finally { if (token===generation) $('#locateBtn').disabled=false; }
   }
   function search(value=radius) {
-    radius=[100,200,400].includes(Number(value))?Number(value):100;
-    cancel(); const token=generation, selected=radius; shown=20; state.nearby=[];
+    radius=Number.isFinite(Number(value))?Math.max(50,Math.min(1000,Math.round(Number(value)/50)*50)):50;
+    cancel(); const token=generation, selected=radius; shown=20; state.nearby=[]; selectedDirections.clear();
     $('#nearbyResults').replaceChildren(); $('#nearbyCount').textContent=''; $('#nearbyMore').classList.add('hidden'); $('#nearbyCollapseTop').classList.add('hidden');
-    document.querySelectorAll('[data-dz-radius]').forEach(b=>b.classList.toggle('active',Number(b.dataset.dzRadius)===radius));
+    const radiusLabel=$('#nearRadiusValue');if(radiusLabel)radiusLabel.textContent=radius+' 米';
+    const minus=$('[data-radius-step="-50"]');if(minus)minus.disabled=radius<=50;
+    const plus=$('[data-radius-step="50"]');if(plus)plus.disabled=radius>=1000;
     $('.nearby-panel .panel-title').textContent=`📍 ${radius}m 附近路線`;
     $('#nearbyStatus').textContent='正在取得位置…'; $('#locateBtn').disabled=true;
     if (!navigator.geolocation) { $('#nearbyStatus').textContent='此瀏覽器不支援定位'; $('#locateBtn').disabled=false; return; }
     navigator.geolocation.getCurrentPosition(p=>{if(token===generation)run(p,selected,token);},e=>{if(token!==generation)return;$('#nearbyStatus').textContent=e.code===1?'請允許定位':'未能取得位置，可再試';$('#locateBtn').disabled=false;},{enableHighAccuracy:false,maximumAge:60000,timeout:8000});
   }
   const controls=document.createElement('div');
-  controls.innerHTML='<div class="filter-row"><button type="button" data-dz-radius="100" class="filter active">100m</button><button type="button" data-dz-radius="200" class="filter">200m</button><button type="button" data-dz-radius="400" class="filter">400m</button></div>';
+  controls.innerHTML='<div class="filter-row near-radius-controls"><button type="button" data-radius-step="-50" class="filter" disabled aria-label="縮細搜尋範圍 50 米">−50 米</button><strong id="nearRadiusValue" aria-live="polite">50 米</strong><button type="button" data-radius-step="50" class="filter" aria-label="擴大搜尋範圍 50 米">＋50 米</button></div>';
   $('.nearby-panel').appendChild(controls);
   for(const b of document.querySelectorAll('[data-near-filter]')) if(!['all','KMB','CTB','MTR','MTRB'].includes(b.dataset.nearFilter)) b.hidden=true;
   renderNearby=render;
   window.addEventListener('click',e=>{
+    const swap=e.target.closest?.('[data-near-switch]');
+    if(swap){e.preventDefault();e.stopImmediatePropagation();const group=visibleGroups().find(g=>g.key===swap.dataset.nearSwitch);if(!group)return;const active=activeRow(group);const next=group.directions[(group.directions.indexOf(active)+1)%group.directions.length];selectedDirections.set(group.key,next.directionKey);render();const replacement=[...document.querySelectorAll('[data-near-switch]')].find(b=>b.dataset.nearSwitch===group.key);replacement?.focus({preventScroll:true});return;}
+    const step=e.target.closest?.('[data-radius-step]');
+    if(step){e.preventDefault();e.stopImmediatePropagation();search(radius+Number(step.dataset.radiusStep));return;}
     const r=e.target.closest?.('[data-dz-radius]');
     if(r || e.target.closest?.('#locateBtn')) { e.preventDefault(); e.stopImmediatePropagation(); search(r?Number(r.dataset.dzRadius):radius); return; }
     if(e.target.closest?.('#nearbyMore')) { e.stopImmediatePropagation(); shown+=20; render(); return; }
@@ -180,5 +225,5 @@
     if(card) { e.stopImmediatePropagation(); const x=state.nearby.find(x=>x.key===card.dataset.nearKey); if(!x)return;if(x.kind==='rail'){openRailway(x);return;}if(x.operator==='MTRB'){openRoute({...x,region:x.mtrBusRegion});return;}const r=normalizedRoutes().find(r=>r.operator===x.operator&&String(r.route)===String(x.route)&&r.bound===x.bound&&String(r.serviceType)===x.serviceType); if(r)openRoute(r);else{$('#routeSearch').value=x.route;state.searchFilter=x.operator;renderSearch();} }
   },true);
   window.addEventListener('pagehide',cancel);
-  window.dzNearby={version:'5.2.0',search,cancel,findStops,mergeRows,addMtr};
+  window.dzNearby={version:'5.3.0',search,cancel,findStops,mergeRows,addMtr,groupRoutes};
 })();
