@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const nodes=new Map();const node=s=>{if(!nodes.has(s))nodes.set(s,{classList:{add(){},remove(){},toggle(){}},appendChild(){},replaceChildren(){},textContent:'',innerHTML:'',disabled:false});return nodes.get(s)};
+const handlers={};let requests=0,gps=0;
+const ctx={console,setTimeout,clearTimeout,AbortController,Map,Set,Number,Date,Infinity,encodeURIComponent,state:{nearby:[],nearbyFilter:'all'},renderNearby(){},escapeHtml:String,operatorBadge:String,etaLabel:()=>'',validFutureEta:x=>!!x,distanceMeters:()=>20,KMB_API:'kmb',navigator:{geolocation:{getCurrentPosition(){gps++}}},document:{querySelector:node,querySelectorAll:()=>[],createElement:()=>node('controls')},window:{DZ_BUILD:'test',addEventListener(k,f){handlers[k]=f}},fetch:async()=>{requests++;throw Error('unexpected fetch')}};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../nearby.js'),'utf8'),ctx);
+const mk=(key,bound,dest,serviceType='1',operator='KMB',route='73K')=>({key,operator,route,bound,dest,serviceType,stopName:'stop',distance:20,eta:null});
+ctx.state.nearby=[mk('a','O','上水'),mk('b','O',' 上水 ','2'),mk('c','I','文錦渡'),mk('d','I','文錦渡','2'),mk('e','O','藍田','1','KMB','277B'),mk('f','I','上水','1','KMB','277B')];
+const grouped=ctx.window.dzNearby.groupRoutes(ctx.state.nearby);assert.equal(grouped.length,2);assert.equal(grouped[0].directions.length,2);assert.equal(grouped[0].directions[0].members.length,2);
+ctx.renderNearby();assert.equal((node('#nearbyResults').innerHTML.match(/class="near-route"/g)||[]).length,2);
+const swap={dataset:{nearSwitch:grouped[0].key}};handlers.click({target:{closest:s=>s==='[data-near-switch]'?swap:null},preventDefault(){},stopImmediatePropagation(){}});assert.match(node('#nearbyResults').innerHTML,/data-near-key="c"/);assert.equal(requests,0);assert.equal(gps,0);
+assert.equal(ctx.window.dzNearby.groupRoutes([mk('1','O','A','1','KMB','1'),mk('2','O','A','1','CTB','1')]).length,2);
+const g1={...mk('g1','O','A','1','GMB','1'),region:'HKI'},g2={...g1,key:'g2',region:'KLN'};assert.equal(ctx.window.dzNearby.groupRoutes([g1,g2]).length,2);
+ctx.window.dzNearby.search();assert.equal(node('#nearRadiusValue').textContent,'50 米');ctx.window.dzNearby.search(100);assert.equal(node('#nearRadiusValue').textContent,'100 米');ctx.window.dzNearby.search(0);assert.equal(node('#nearRadiusValue').textContent,'50 米');ctx.window.dzNearby.search(5000);assert.equal(node('#nearRadiusValue').textContent,'1000 米');
+console.log('Passed: route cards unique; service duplicates merged; directions retained and switched with zero requests/GPS; operators and minibus regions separated; 50m steps and boundaries.');
