@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node scripts/build-mtr-stations.mjs
+      - run: node scripts/build-mtr-stations.mjs --reuse-published
       - run: node --check nearby.js
       - run: node --check mtr-bus.js
       - run: node tests/nearby.cjs
