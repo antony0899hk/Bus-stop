@@ -6,6 +6,10 @@ vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(
 const mk=(key,bound,dest,serviceType='1',operator='KMB',route='73K')=>({key,operator,route,bound,dest,serviceType,stopName:'stop',distance:20,eta:null});
 ctx.state.nearby=[mk('a','O','上水'),mk('b','O',' 上水 ','2'),mk('c','I','文錦渡'),mk('d','I','文錦渡','2'),mk('e','O','藍田','1','KMB','277B'),mk('f','I','上水','1','KMB','277B')];
 const grouped=ctx.window.dzNearby.groupRoutes(ctx.state.nearby);assert.equal(grouped.length,2);assert.equal(grouped[0].directions.length,2);assert.equal(grouped[0].directions[0].members.length,2);
+ctx.renderNearby();assert.equal((node('#nearbyResults').innerHTML.match(/class="near-route"/g)||[]).length,0);
+assert.match(node('#nearbyMore').textContent,/2 條未有預報/);
+handlers.click({target:{closest:s=>s==='#nearbyMore'?{}:null},stopImmediatePropagation(){}});
+assert.equal(requests,0);assert.equal(gps,0);
 ctx.renderNearby();assert.equal((node('#nearbyResults').innerHTML.match(/class="near-route"/g)||[]).length,2);
 const swap={dataset:{nearSwitch:grouped[0].key}};handlers.click({target:{closest:s=>s==='[data-near-switch]'?swap:null},preventDefault(){},stopImmediatePropagation(){}});assert.match(node('#nearbyResults').innerHTML,/data-near-key="c"/);assert.equal(requests,0);assert.equal(gps,0);
 assert.equal(ctx.window.dzNearby.groupRoutes([mk('1','O','A','1','KMB','1'),mk('2','O','A','1','CTB','1')]).length,2);
@@ -19,6 +23,7 @@ ctx.window.dzNearby.mergeRows({operator:'CTB',distance:20},[{route:'56',dir:'O',
 assert.equal([...destinationRows.values()][0].dest,'屯門');
 assert.equal([...destinationRows.values()][1].dest,'上水');
 ctx.state.nearby=[{...mk('no-eta','O','A'),distance:10},{...mk('has-eta','O','B','1','KMB','2'),distance:30,eta:new Date().toISOString()},{operator:'MTR',key:'rail-first',kind:'rail',stopId:'SHS',route:'上水站',distance:200}];
+handlers.click({target:{closest:s=>s==='#nearbyMore'?{}:null},stopImmediatePropagation(){}});
 ctx.renderNearby();
 const sortedHtml=node('#nearbyResults').innerHTML;
 assert(sortedHtml.indexOf('data-near-key="rail-first"')<sortedHtml.indexOf('data-near-key="has-eta"'));
