@@ -12,3 +12,15 @@ assert.equal(ctx.window.dzNearby.groupRoutes([mk('1','O','A','1','KMB','1'),mk('
 const g1={...mk('g1','O','A','1','GMB','1'),region:'HKI'},g2={...g1,key:'g2',region:'KLN'};assert.equal(ctx.window.dzNearby.groupRoutes([g1,g2]).length,2);
 ctx.window.dzNearby.search();assert.equal(node('#nearRadiusValue').textContent,'50 米');ctx.window.dzNearby.search(100);assert.equal(node('#nearRadiusValue').textContent,'100 米');ctx.window.dzNearby.search(0);assert.equal(node('#nearRadiusValue').textContent,'50 米');ctx.window.dzNearby.search(5000);assert.equal(node('#nearRadiusValue').textContent,'1000 米');
 console.log('Passed: route cards unique; service duplicates merged; directions retained and switched with zero requests/GPS; operators and minibus regions separated; 50m steps and boundaries.');
+
+ctx.state.ctbRoutes=[{route:'56',orig_tc:'上水',dest_tc:'屯門'}];
+const destinationRows=new Map();
+ctx.window.dzNearby.mergeRows({operator:'CTB',distance:20},[{route:'56',dir:'O',eta:null},{route:'56',dir:'I',eta:null}],destinationRows);
+assert.equal([...destinationRows.values()][0].dest,'屯門');
+assert.equal([...destinationRows.values()][1].dest,'上水');
+ctx.state.nearby=[{...mk('no-eta','O','A'),distance:10},{...mk('has-eta','O','B','1','KMB','2'),distance:30,eta:new Date().toISOString()},{operator:'MTR',key:'rail-first',kind:'rail',stopId:'SHS',route:'上水站',distance:200}];
+ctx.renderNearby();
+const sortedHtml=node('#nearbyResults').innerHTML;
+assert(sortedHtml.indexOf('data-near-key="rail-first"')<sortedHtml.indexOf('data-near-key="has-eta"'));
+assert(sortedHtml.indexOf('data-near-key="has-eta"')<sortedHtml.indexOf('data-near-key="no-eta"'));
+console.log('Passed: CTB missing destinations resolved by bound; railway first and no ETA last.');
