@@ -106,7 +106,13 @@
     }
     return [...groups.values()];
   }
-  function visibleGroups(){return groupRoutes(state.nearby.filter(x=>state.nearbyFilter==='all'||x.operator===state.nearbyFilter));}
+  function visibleGroups(){
+    const rank=x=>x.kind==='rail'?0:x.eta&&!x.error?1:2;
+    return groupRoutes(state.nearby.filter(x=>state.nearbyFilter==='all'||x.operator===state.nearbyFilter)).sort((a,b)=>{
+      const x=activeRow(a),y=activeRow(b);
+      return rank(x)-rank(y) || (rank(x)===1?new Date(x.eta)-new Date(y.eta):0) || x.distance-y.distance || normalizeRoute(x.route).localeCompare(normalizeRoute(y.route),undefined,{numeric:true});
+    });
+  }
   function activeRow(group) {
     return group.directions.find(x=>x.directionKey===selectedDirections.get(group.key)) || group.directions[0];
   }
@@ -127,8 +133,12 @@
     for (const x of data) {
       if (!x.route) continue;
       const eta = validFutureEta(x.eta) ? x.eta : null;
-      const key = [stop.operator,x.route,x.dir || '',x.dest_tc || '',x.service_type || '1'].join('|');
-      const row = {...stop,key,route:x.route,dest:x.dest_tc || '',bound:x.dir || 'O',serviceType:String(x.service_type || '1'),eta};
+      const bound=x.dir || x.bound || 'O';
+      const catalog=stop.operator==='CTB'?state.ctbRoutes:state.kmbRoutes;
+      const meta=(catalog||[]).find(r=>normalizeRoute(r.route)===normalizeRoute(x.route)&&(stop.operator==='CTB'||r.bound===bound&&String(r.service_type||'1')===String(x.service_type||'1')));
+      const dest=x.dest_tc || (stop.operator==='CTB'&&bound==='I'?meta?.orig_tc:meta?.dest_tc) || '';
+      const key = [stop.operator,x.route,bound,dest,x.service_type || '1'].join('|');
+      const row = {...stop,key,route:x.route,dest,bound,serviceType:String(x.service_type || '1'),eta};
       const old = rows.get(key);
       if (!old || (eta && (!old.eta || new Date(eta) < new Date(old.eta))) || (!eta && !old.eta && row.distance < old.distance)) rows.set(key,row);
     }
@@ -138,7 +148,7 @@
     for (const [operator,path] of [['KMB','kmb-stops.json'],['CTB','ctb-stops.json']]) {
       if (token !== generation) return {found:[],sources};
       try {
-        const j = await json(`./${path}?v=${window.DZ_BUILD || '5.3.0'}`);
+        const j = await json(`./${path}?v=${window.DZ_BUILD || '5.3.1'}`);
         if (!Array.isArray(j.data)) throw Error('invalid stop catalog');
         sources++;
         for (let i=0;i<j.data.length;i++) {
@@ -225,5 +235,5 @@
     if(card) { e.stopImmediatePropagation(); const x=state.nearby.find(x=>x.key===card.dataset.nearKey); if(!x)return;if(x.kind==='rail'){openRailway(x);return;}if(x.operator==='MTRB'){openRoute({...x,region:x.mtrBusRegion});return;}const r=normalizedRoutes().find(r=>r.operator===x.operator&&String(r.route)===String(x.route)&&r.bound===x.bound&&String(r.serviceType)===x.serviceType); if(r)openRoute(r);else{$('#routeSearch').value=x.route;state.searchFilter=x.operator;renderSearch();} }
   },true);
   window.addEventListener('pagehide',cancel);
-  window.dzNearby={version:'5.3.0',search,cancel,findStops,mergeRows,addMtr,groupRoutes};
+  window.dzNearby={version:'5.3.1',search,cancel,findStops,mergeRows,addMtr,groupRoutes};
 })();
