@@ -1,7 +1,8 @@
 (() => {
   'use strict';
   const $ = s => document.querySelector(s);
-  let radius = 50, generation = 0, shown = 20;
+  const PAGE_SIZE = 10;
+  let radius = 50, generation = 0, shown = PAGE_SIZE;
   let showNoEta = false;
   const selectedDirections = new Map();
   const controllers = new Set();
@@ -131,7 +132,7 @@
     }).join('')||(noEtaCount&&!showNoEta?'<div class="empty">附近路線暫時未有預報，撳「更多」查看；未有預報不代表停駛。</div>':'<div class="empty">此範圍暫時未有結果，可撳「＋50 米」擴大搜尋。</div>');
     $('#nearbyMore').classList.toggle('hidden',displayed.length<=shown&&(showNoEta||!noEtaCount));
     $('#nearbyMore').textContent=!showNoEta&&noEtaCount?`更多（包括 ${noEtaCount} 條未有預報路線）`:`顯示更多（尚有 ${Math.max(0,displayed.length-shown)} 個）`;
-    $('#nearbyCollapseTop').classList.toggle('hidden',shown<=20&&!showNoEta);
+    $('#nearbyCollapseTop').classList.toggle('hidden',shown<=PAGE_SIZE&&!showNoEta);
   }
   function mergeRows(stop, data, rows) {
     for (const x of data) {
@@ -211,7 +212,7 @@
   }
   function search(value=radius) {
     radius=Number.isFinite(Number(value))?Math.max(50,Math.min(1000,Math.round(Number(value)/50)*50)):50;
-    cancel(); const token=generation, selected=radius; shown=20; showNoEta=false; state.nearby=[]; selectedDirections.clear();
+    cancel(); const token=generation, selected=radius; shown=PAGE_SIZE; showNoEta=false; state.nearby=[]; selectedDirections.clear();
     $('#nearbyResults').replaceChildren(); $('#nearbyCount').textContent=''; $('#nearbyMore').classList.add('hidden'); $('#nearbyCollapseTop').classList.add('hidden');
     const radiusLabel=$('#nearRadiusValue');if(radiusLabel)radiusLabel.textContent=radius+' 米';
     const minus=$('[data-radius-step="-50"]');if(minus)minus.disabled=radius<=50;
@@ -233,8 +234,8 @@
     if(step){e.preventDefault();e.stopImmediatePropagation();search(radius+Number(step.dataset.radiusStep));return;}
     const r=e.target.closest?.('[data-dz-radius]');
     if(r || e.target.closest?.('#locateBtn')) { e.preventDefault(); e.stopImmediatePropagation(); search(r?Number(r.dataset.dzRadius):radius); return; }
-    if(e.target.closest?.('#nearbyMore')) { e.stopImmediatePropagation(); showNoEta=true; shown+=20; render(); return; }
-    if(e.target.closest?.('#nearbyCollapseTop')) { e.stopImmediatePropagation(); shown=20; showNoEta=false; render(); return; }
+    if(e.target.closest?.('#nearbyMore')) { e.stopImmediatePropagation(); showNoEta=true; shown+=PAGE_SIZE; render(); return; }
+    if(e.target.closest?.('#nearbyCollapseTop')) { e.stopImmediatePropagation(); shown=PAGE_SIZE; showNoEta=false; render(); return; }
     const card=e.target.closest?.('[data-near-key]');
     if(card) { e.stopImmediatePropagation(); const x=state.nearby.find(x=>x.key===card.dataset.nearKey); if(!x)return;if(x.kind==='rail'){openRailway(x);return;}if(x.operator==='MTRB'){openRoute({...x,region:x.mtrBusRegion});return;}const r=normalizedRoutes().find(r=>r.operator===x.operator&&String(r.route)===String(x.route)&&r.bound===x.bound&&String(r.serviceType)===x.serviceType); if(r)openRoute(r);else{$('#routeSearch').value=x.route;state.searchFilter=x.operator;renderSearch();} }
   },true);
