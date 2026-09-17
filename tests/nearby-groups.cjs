@@ -29,3 +29,16 @@ const sortedHtml=node('#nearbyResults').innerHTML;
 assert(sortedHtml.indexOf('data-near-key="rail-first"')<sortedHtml.indexOf('data-near-key="has-eta"'));
 assert(sortedHtml.indexOf('data-near-key="has-eta"')<sortedHtml.indexOf('data-near-key="no-eta"'));
 console.log('Passed: CTB missing destinations resolved by bound; railway first and no ETA last.');
+
+ctx.window.dzNearby.search(50);
+ctx.state.nearby=Array.from({length:35},(_,i)=>({...mk('page-'+i,'O','A','1','KMB',String(i+1)),eta:new Date(Date.now()+i*60000).toISOString()}));
+const cardCount=()=> (node('#nearbyResults').innerHTML.match(/class="near-route"/g)||[]).length;
+ctx.renderNearby();assert.equal(cardCount(),10);
+ctx.renderNearby();assert.equal(cardCount(),10);
+const moreClick=()=>handlers.click({target:{closest:s=>s==='#nearbyMore'?{}:null},stopImmediatePropagation(){}});
+moreClick();assert.equal(cardCount(),20);
+moreClick();assert.equal(cardCount(),30);
+moreClick();assert.equal(cardCount(),35);
+handlers.click({target:{closest:s=>s==='#nearbyCollapseTop'?{}:null},stopImmediatePropagation(){}});
+assert.equal(cardCount(),10);assert.equal(requests,0);
+console.log('Passed: initial 10; progressive render remains collapsed; More adds 10; collapse restores 10; no extra network requests.');
