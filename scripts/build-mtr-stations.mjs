@@ -1,4 +1,4 @@
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const linesURL='https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv';
 const venuesURL='https://mapapi.hkmapservice.gov.hk/ogc/wfs/indoor/mtr_venue_polygon?service=WFS&version=1.1.0&request=GetFeature&outputFormat=application%2Fjson&srsName=EPSG:4326';
 async function fetchOK(url){const r=await fetch(url,{signal:AbortSignal.timeout(45000)});if(!r.ok)throw Error(`${r.status} ${url}`);return r;}
@@ -25,8 +25,7 @@ if(data.length<stations.size*.85||missing.some(c=>stations.get(c)?.lines.include
 await mkdir('runtime',{recursive:true});await writeFile('runtime/mtr-stations.json',JSON.stringify({generated:new Date().toISOString(),source:[linesURL,venuesURL],distanceReference:'station-building-centre',data}));
 }
 async function reusePublished(){
-  const url='https://antony0899hk.github.io/Bus-stop/runtime/mtr-stations.json';
-  const catalog=await fetchOK(url).then(r=>r.json());
+  const catalog=JSON.parse(await readFile(new URL('../data/mtr-stations-validated.json',import.meta.url),'utf8'));
   const data=catalog.data;
   if(!Array.isArray(data)||data.length<97||catalog.distanceReference!=='station-building-centre'||!catalog.generated||!Array.isArray(catalog.source)||!catalog.source.includes(venuesURL))throw Error('Published railway catalog provenance/coverage invalid');
   const codes=new Set();
@@ -34,7 +33,7 @@ async function reusePublished(){
     if(!s.code||codes.has(s.code)||!s.name_tc||!Array.isArray(s.lines)||!s.lines.length||!Number.isFinite(s.lat)||!Number.isFinite(s.lon)||s.lat<21||s.lat>23||s.lon<113||s.lon>115)throw Error('Invalid published station '+s.code);
     codes.add(s.code);
   }
-  for(const code of ['ADM','EXC','HUH','MKK','KOT','TAW','SHT','FOT','RAC','UNI','TAP','TWO','FAN','SHS','LOW','LMC'])if(!data.some(s=>s.code===code&&s.lines.includes('EAL')))throw Error('Missing East Rail station '+code);
+  for(const code of ['ADM','EXC','HUH','MKK','KOT','TAW','SHT','FOT','UNI','TAP','TWO','FAN','SHS','LOW','LMC'])if(!data.some(s=>s.code===code&&s.lines.includes('EAL')))throw Error('Missing East Rail station '+code);
   await mkdir('runtime',{recursive:true});
   // Preserve original generation date and official provenance, not a fresh-data claim.
   await writeFile('runtime/mtr-stations.json',JSON.stringify(catalog));
