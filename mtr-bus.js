@@ -48,15 +48,19 @@
   function allStops(route){return (route?.directions||[]).flatMap(d=>(d.stops||[]).map(s=>({...s,bound:d.bound})));}
 
   async function renderRoute(r){
-    const region=r.region||ROUTE_REGION[String(r.route).toUpperCase()],bundle=await loadBundle(region),meta=routeMeta(r.route,bundle);
-    if(!meta)throw new Error("暫時未有路線資料");
+    const region=r.region||ROUTE_REGION[String(r.route).toUpperCase()],bundle=await loadBundle(region);
+    const timetableDb=await window.dzTimetable?.loadDatabase?.(),timetableDirs=(timetableDb?.value?.records||[]).filter(x=>x.operator==='MTRB'&&String(x.route).toUpperCase()===String(r.route).toUpperCase());
+    const fallbackDirs=timetableDirs.map(x=>({bound:x.bound,stops:[]}));
+    const meta=routeMeta(r.route,bundle)||{...r,orig:timetableDirs[0]?.origin||'',dest:timetableDirs[0]?.destination||'',directions:fallbackDirs};
     state.selectedRoute={...r,...meta};
     $('#resultsSection')?.classList.add('hidden');$('#routeSection')?.classList.remove('hidden');
-    $('#routeHeader').innerHTML=`<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(meta.route)}</div><div class="dest">${escapeHtml(meta.orig)} ↔ ${escapeHtml(meta.dest)}</div><div class="route-meta">${badge()}${Number.isFinite(meta.fare)?`<span class="dz-full-fare">全程 $${Number(meta.fare).toFixed(1)}</span>`:''}</div></div>${typeof routeServiceSummary==='function'?routeServiceSummary(meta):''}</div>`;
     const dirs=meta.directions||[];let active=Math.max(0,dirs.findIndex(d=>d.bound===r.bound));
     const paint=async()=>{
-      $('#directionTabs').innerHTML=dirs.map((d,i)=>`<button data-mtrb-dir="${i}" class="${i===active?'active':''}">往 ${escapeHtml(d.stops?.at(-1)?.name_tc||meta.dest)}</button>`).join('');
-      const dir=dirs[active]||{stops:[]};$('#stops').innerHTML='<div class="loading">正在載入港鐵巴士 ETA…</div>';
+      const dir=dirs[active]||{stops:[]},selected={...meta,bound:['O','I'][active]||dir.bound||'O'};
+      $('#routeHeader').innerHTML=`<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(meta.route)}</div><div class="dest">${escapeHtml(meta.orig)} ↔ ${escapeHtml(meta.dest)}</div><div class="route-meta">${badge()}${Number.isFinite(meta.fare)?`<span class="dz-full-fare">全程 $${Number(meta.fare).toFixed(1)}</span>`:''}</div></div>${typeof routeServiceSummary==='function'?routeServiceSummary(selected):''}</div>`;
+      window.dzTimetable?.render?.(selected,$('[data-route-timetable]')).catch(()=>{});
+      $('#directionTabs').innerHTML=dirs.map((d,i)=>`<button data-mtrb-dir="${i}" class="${i===active?'active':''}">往 ${escapeHtml(d.stops?.at(-1)?.name_tc||timetableDirs[i]?.destination||meta.dest)}</button>`).join('');
+      $('#stops').innerHTML='<div class="loading">正在載入港鐵巴士 ETA…</div>';
       let data=null;try{data=await schedule(meta.route);}catch{}
       $('#stops').innerHTML=(dir.stops||[]).map((s,i)=>`<div class="stop-row" data-stop-id="${escapeHtml(s.id)}"><div class="stop-no">${i+1}</div><div><div class="stop-name">${escapeHtml(s.name_tc||s.id)}</div><div class="etas">${etaChips(minutesForStop(data,s.id))}</div></div></div>`).join('')||'<div class="empty">暫時未有站點資料。</div>';
       document.querySelectorAll('[data-mtrb-dir]').forEach(b=>b.addEventListener('click',()=>{active=Number(b.dataset.mtrbDir)||0;paint();}));

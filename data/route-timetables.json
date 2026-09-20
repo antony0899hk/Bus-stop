@@ -1,0 +1,2239 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-19T14:32:44.944Z",
+  "records": [
+    {
+      "operator": "KMB",
+      "route": "1",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "days": {
+        "weekday": {
+          "first": "05:35",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "05:35",
+              "end": "20:05",
+              "headway": "10-15"
+            },
+            {
+              "start": "20:05",
+              "end": "23:40",
+              "headway": "20-25"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "05:35",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "05:35",
+              "end": "21:05",
+              "headway": "10-15"
+            },
+            {
+              "start": "21:05",
+              "end": "23:40",
+              "headway": "20-25"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "05:35",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "05:35",
+              "end": "20:20",
+              "headway": "10-15"
+            },
+            {
+              "start": "20:20",
+              "end": "23:40",
+              "headway": "20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://search.kmb.hk/KMBWebSite/AnnouncementPicture.ashx?url=1768179402_2413_0.pdf",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "2026-01-19"
+      }
+    },
+    {
+      "operator": "KMB",
+      "route": "1",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "days": {
+        "weekday": {
+          "first": "06:30",
+          "last": "00:45",
+          "periods": [
+            {
+              "start": "06:30",
+              "end": "13:10",
+              "headway": "15-20"
+            },
+            {
+              "start": "13:10",
+              "end": "19:55",
+              "headway": "8-13"
+            },
+            {
+              "start": "19:55",
+              "end": "00:45",
+              "headway": "15-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:30",
+          "last": "00:45",
+          "periods": [
+            {
+              "start": "06:30",
+              "end": "08:30",
+              "headway": "20"
+            },
+            {
+              "start": "08:30",
+              "end": "22:45",
+              "headway": "10-15"
+            },
+            {
+              "start": "22:45",
+              "end": "00:45",
+              "headway": "20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:30",
+          "last": "00:45",
+          "periods": [
+            {
+              "start": "06:30",
+              "end": "09:50",
+              "headway": "20"
+            },
+            {
+              "start": "09:50",
+              "end": "22:05",
+              "headway": "10-15"
+            },
+            {
+              "start": "22:05",
+              "end": "00:45",
+              "headway": "20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://search.kmb.hk/KMBWebSite/AnnouncementPicture.ashx?url=1768179402_2413_0.pdf",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "2026-01-19"
+      }
+    },
+    {
+      "operator": "CTB",
+      "route": "94A",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "18:30",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "07:00",
+              "headway": "30"
+            },
+            {
+              "start": "07:12",
+              "end": "07:45",
+              "headway": "12-13"
+            },
+            {
+              "start": "08:15",
+              "end": "18:30",
+              "headway": "25-30"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "18:30",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "18:30",
+              "headway": "30"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "18:30",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "18:30",
+              "headway": "30"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://mobile.citybus.com.hk/pdf/E202501844a03.pdf",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "2026-01-03"
+      }
+    },
+    {
+      "operator": "CTB",
+      "route": "3A",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "special",
+      "days": {
+        "weekday": {
+          "departures": [
+            "07:10",
+            "07:15"
+          ],
+          "note": "只於官方列明上課日行走"
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://mobile.citybus.com.hk/pdf/E202501861a03.pdf",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "2026-01-07（指定日子，詳見官方通告）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "506",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "屯門碼頭",
+      "destination": "兆麟",
+      "days": {
+        "weekday": {
+          "first": "05:30",
+          "last": "00:30",
+          "periods": [
+            {
+              "start": "05:30",
+              "end": "00:30",
+              "headway": "4-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "05:30",
+          "last": "00:30",
+          "periods": [
+            {
+              "start": "05:30",
+              "end": "00:30",
+              "headway": "5-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "05:30",
+          "last": "00:30",
+          "periods": [
+            {
+              "start": "05:30",
+              "end": "00:30",
+              "headway": "7-10"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=506",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "506",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "兆麟",
+      "destination": "屯門碼頭",
+      "days": {
+        "weekday": {
+          "first": "05:45",
+          "last": "00:50",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "00:50",
+              "headway": "4-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "05:45",
+          "last": "00:50",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "00:50",
+              "headway": "5-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "05:45",
+          "last": "00:50",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "00:50",
+              "headway": "7-10"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=506",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K12",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "大埔墟站",
+      "destination": "八號花園",
+      "days": {
+        "weekday": {
+          "first": "06:13",
+          "last": "22:00",
+          "periods": [
+            {
+              "start": "06:13",
+              "end": "22:00",
+              "headway": "5-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:13",
+          "last": "22:00",
+          "periods": [
+            {
+              "start": "06:13",
+              "end": "22:00",
+              "headway": "5-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:13",
+          "last": "22:00",
+          "periods": [
+            {
+              "start": "06:13",
+              "end": "22:00",
+              "headway": "10-18"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K12",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K12",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "八號花園",
+      "destination": "大埔墟站",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "22:05",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "22:05",
+              "headway": "5-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "22:05",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "22:05",
+              "headway": "5-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "22:05",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "22:05",
+              "headway": "10-18"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K12",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K14",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "大埔超級城",
+      "destination": "大埔墟站",
+      "days": {
+        "weekday": {
+          "first": "07:00",
+          "last": "10:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "10:00",
+              "headway": "15-18"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "07:00",
+          "last": "10:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "10:00",
+              "headway": "15-18"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K14",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K17",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "大埔墟站",
+      "destination": "富善",
+      "days": {
+        "weekday": {
+          "first": "06:10",
+          "last": "01:00",
+          "periods": [
+            {
+              "start": "06:10",
+              "end": "01:00",
+              "headway": "5-12"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:10",
+          "last": "01:00",
+          "periods": [
+            {
+              "start": "06:10",
+              "end": "01:00",
+              "headway": "5-12"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K17",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K17",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "富善",
+      "destination": "大埔墟站",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "00:48",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "00:48",
+              "headway": "5-12"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "00:48",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "00:48",
+              "headway": "5-12"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K17",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K18",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "大埔墟站",
+      "destination": "廣福",
+      "days": {
+        "weekday": {
+          "first": "06:10",
+          "last": "01:00",
+          "periods": [
+            {
+              "start": "06:10",
+              "end": "01:00",
+              "headway": "10-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:10",
+          "last": "01:00",
+          "periods": [
+            {
+              "start": "06:10",
+              "end": "01:00",
+              "headway": "10-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K18",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K18",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "廣福",
+      "destination": "大埔墟站",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "00:48",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "00:48",
+              "headway": "10-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "00:48",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "00:48",
+              "headway": "10-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K18",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K51",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "富泰",
+      "destination": "大欖",
+      "days": {
+        "weekday": {
+          "first": "05:45",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "23:45",
+              "headway": "6-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "05:45",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "23:45",
+              "headway": "8-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "05:45",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "23:45",
+              "headway": "8-20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K51",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K51",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "大欖",
+      "destination": "富泰",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:45",
+              "headway": "6-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:45",
+              "headway": "8-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:45",
+              "headway": "8-20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K51",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K51A",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "富泰",
+      "destination": "掃管笏村",
+      "days": {
+        "weekday": {
+          "first": "07:00",
+          "last": "20:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "20:00",
+              "headway": "30"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "07:00",
+          "last": "20:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "20:00",
+              "headway": "30"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "07:00",
+          "last": "20:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "20:00",
+              "headway": "30"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K51A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K51A",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "掃管笏村",
+      "destination": "富泰",
+      "days": {
+        "weekday": {
+          "first": "07:00",
+          "last": "20:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "20:00",
+              "headway": "30"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "07:00",
+          "last": "20:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "20:00",
+              "headway": "30"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "07:00",
+          "last": "20:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "20:00",
+              "headway": "30"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K51A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K52",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "悅湖山莊",
+      "destination": "龍鼓灘",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:40",
+              "headway": "9-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:40",
+              "headway": "9-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:40",
+              "headway": "13-20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K52",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K52",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "龍鼓灘",
+      "destination": "悅湖山莊",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:40",
+              "headway": "9-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:40",
+              "headway": "9-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:40",
+              "headway": "13-20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K52",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K52A",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "屯門站 ",
+      "destination": "曾咀 ",
+      "days": {
+        "weekday": {
+          "first": "08:00",
+          "last": "17:00",
+          "periods": [
+            {
+              "start": "08:00",
+              "end": "17:00",
+              "headway": "60"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "08:00",
+          "last": "17:00",
+          "periods": [
+            {
+              "start": "08:00",
+              "end": "15:00",
+              "headway": "30"
+            },
+            {
+              "start": "15:00",
+              "end": "17:00",
+              "headway": "60"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "08:00",
+          "last": "17:00",
+          "periods": [
+            {
+              "start": "08:00",
+              "end": "10:00",
+              "headway": "30"
+            },
+            {
+              "start": "10:00",
+              "end": "15:00",
+              "headway": "20"
+            },
+            {
+              "start": "15:00",
+              "end": "17:00",
+              "headway": "60"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K52A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K52A",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "曾咀 ",
+      "destination": "屯門站 ",
+      "days": {
+        "weekday": {
+          "first": "09:00",
+          "last": "18:00",
+          "periods": [
+            {
+              "start": "09:00",
+              "end": "18:00",
+              "headway": "60"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "09:00",
+          "last": "18:00",
+          "periods": [
+            {
+              "start": "09:00",
+              "end": "16:00",
+              "headway": "30"
+            },
+            {
+              "start": "16:00",
+              "end": "18:00",
+              "headway": "60"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "09:00",
+          "last": "18:00",
+          "periods": [
+            {
+              "start": "09:00",
+              "end": "11:00",
+              "headway": "30"
+            },
+            {
+              "start": "11:00",
+              "end": "16:00",
+              "headway": "20"
+            },
+            {
+              "start": "16:00",
+              "end": "18:00",
+              "headway": "60"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K52A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K52P",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "龍鼓灘",
+      "destination": "屯門站 ",
+      "days": {
+        "weekday": {
+          "first": "07:15",
+          "last": "07:30",
+          "periods": [
+            {
+              "start": "07:15",
+              "end": "07:30",
+              "headway": "15"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K52P",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K53",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "屯門站 ",
+      "destination": "屯門站 ",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "00:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "09:00",
+              "headway": "8-15"
+            },
+            {
+              "start": "09:00",
+              "end": "15:00",
+              "headway": "20"
+            },
+            {
+              "start": "15:00",
+              "end": "20:00",
+              "headway": "8-15"
+            },
+            {
+              "start": "20:00",
+              "end": "00:00",
+              "headway": "15-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "00:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "09:00",
+              "headway": "12-15"
+            },
+            {
+              "start": "09:00",
+              "end": "15:00",
+              "headway": "20"
+            },
+            {
+              "start": "15:00",
+              "end": "20:00",
+              "headway": "12-15"
+            },
+            {
+              "start": "20:00",
+              "end": "00:00",
+              "headway": "15-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "00:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "00:00",
+              "headway": "15-20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K53",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K53S",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "屯門站 ",
+      "destination": "屯門站 ",
+      "days": {
+        "weekday": {
+          "first": "06:20",
+          "last": "21:20",
+          "periods": [
+            {
+              "start": "06:20",
+              "end": "21:20",
+              "headway": "10-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:20",
+          "last": "21:20",
+          "periods": [
+            {
+              "start": "06:20",
+              "end": "21:20",
+              "headway": "20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:20",
+          "last": "21:20",
+          "periods": [
+            {
+              "start": "06:20",
+              "end": "21:20",
+              "headway": "20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K53S",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K54",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "和田邨",
+      "destination": "和田邨",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:15",
+              "headway": "15-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:15",
+              "headway": "15-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:15",
+              "headway": "15-20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K54",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K54A",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "和田邨",
+      "destination": "港鐵兆康站 (北) ",
+      "days": {
+        "weekday": {
+          "first": "05:45",
+          "last": "00:00",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "11:00",
+              "headway": "5-15"
+            },
+            {
+              "start": "14:35",
+              "end": "17:30",
+              "headway": "5-15"
+            },
+            {
+              "start": "23:30",
+              "end": "00:00",
+              "headway": "5-15"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "05:45",
+          "last": "00:00",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "18:30",
+              "headway": "5-15"
+            },
+            {
+              "start": "23:30",
+              "end": "00:00",
+              "headway": "5-15"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "05:45",
+          "last": "00:00",
+          "periods": [
+            {
+              "start": "05:45",
+              "end": "18:30",
+              "headway": "5-15"
+            },
+            {
+              "start": "23:30",
+              "end": "00:00",
+              "headway": "5-15"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K54A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K54A",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "港鐵兆康站 (北) ",
+      "destination": "和田邨",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "00:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "10:45",
+              "headway": "5-15"
+            },
+            {
+              "start": "14:20",
+              "end": "00:15",
+              "headway": "5-15"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "00:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "00:15",
+              "headway": "5-15"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "00:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "00:15",
+              "headway": "5-15"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K54A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K58",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "富泰",
+      "destination": "管翠路",
+      "days": {
+        "weekday": {
+          "first": "07:00",
+          "last": "07:15",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "07:15",
+              "headway": "7-8"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K58",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K58",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "管翠路",
+      "destination": "富泰",
+      "days": {
+        "weekday": {
+          "first": "06:45",
+          "last": "07:13",
+          "periods": [
+            {
+              "start": "06:45",
+              "end": "07:13",
+              "headway": "10-18"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K58",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K65",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "元朗站 ",
+      "destination": "流浮山",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:45",
+              "headway": "9-16"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:45",
+              "headway": "9-16"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:45",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:45",
+              "headway": "13-16"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K65",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K65",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "流浮山",
+      "destination": "元朗站 ",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:15",
+              "headway": "9-16"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:15",
+              "headway": "9-16"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:15",
+              "headway": "13-16"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K65",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K65A",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天水圍站 ",
+      "destination": "流浮山",
+      "days": {
+        "weekday": {
+          "first": "07:15",
+          "last": "19:30",
+          "periods": [
+            {
+              "start": "07:15",
+              "end": "09:00",
+              "headway": "12-15"
+            },
+            {
+              "start": "17:30",
+              "end": "19:30",
+              "headway": "12-15"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K65A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K65A",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "流浮山",
+      "destination": "天水圍站 ",
+      "days": {
+        "weekday": {
+          "first": "06:55",
+          "last": "18:30",
+          "periods": [
+            {
+              "start": "06:55",
+              "end": "08:30",
+              "headway": "12-15"
+            },
+            {
+              "start": "17:00",
+              "end": "18:30",
+              "headway": "12-15"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K65A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K66",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "朗屏",
+      "destination": "大棠黃泥墩村",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:20",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:20",
+              "headway": "4-15"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:20",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:20",
+              "headway": "8-15"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:20",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:20",
+              "headway": "10-15"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K66",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K66",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "大棠黃泥墩村",
+      "destination": "朗屏",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:20",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:20",
+              "headway": "4-15"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:20",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:20",
+              "headway": "8-15"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:20",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:20",
+              "headway": "10-15"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K66",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K68",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "元朗工業邨",
+      "destination": "元朗工業邨",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:00",
+              "headway": "10-20"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:00",
+              "headway": "10-20"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:00",
+              "headway": "12-20"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K68",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K73",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天恆",
+      "destination": "元朗西 ",
+      "days": {
+        "weekday": {
+          "first": "05:50",
+          "last": "23:30",
+          "periods": [
+            {
+              "start": "05:50",
+              "end": "23:30",
+              "headway": "4-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "05:50",
+          "last": "23:30",
+          "periods": [
+            {
+              "start": "05:50",
+              "end": "23:30",
+              "headway": "7-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "05:50",
+          "last": "23:30",
+          "periods": [
+            {
+              "start": "05:50",
+              "end": "23:30",
+              "headway": "7-10"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K73",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K73",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "元朗西 ",
+      "destination": "天恆",
+      "days": {
+        "weekday": {
+          "first": "06:10",
+          "last": "23:55",
+          "periods": [
+            {
+              "start": "06:10",
+              "end": "23:55",
+              "headway": "4-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:10",
+          "last": "23:55",
+          "periods": [
+            {
+              "start": "06:10",
+              "end": "23:55",
+              "headway": "7-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:10",
+          "last": "23:55",
+          "periods": [
+            {
+              "start": "06:10",
+              "end": "23:55",
+              "headway": "7-10"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K73",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K74",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天水圍市中心",
+      "destination": "天水圍市中心",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "19:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "09:00",
+              "headway": "20"
+            },
+            {
+              "start": "09:00",
+              "end": "15:00",
+              "headway": "60"
+            },
+            {
+              "start": "15:00",
+              "end": "19:00",
+              "headway": "20-25"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "19:00",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "09:00",
+              "headway": "20"
+            },
+            {
+              "start": "09:00",
+              "end": "15:00",
+              "headway": "60"
+            },
+            {
+              "start": "15:00",
+              "end": "19:00",
+              "headway": "20-25"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "09:00",
+          "last": "17:00",
+          "periods": [
+            {
+              "start": "09:00",
+              "end": "17:00",
+              "headway": "30-60"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K74",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K75A",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天水圍站 ",
+      "destination": "天水圍站 ",
+      "days": {
+        "weekday": {
+          "first": "06:15",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:15",
+              "end": "23:15",
+              "headway": "30"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:15",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:15",
+              "end": "23:15",
+              "headway": "30"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:15",
+          "last": "23:15",
+          "periods": [
+            {
+              "start": "06:15",
+              "end": "23:15",
+              "headway": "30"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K75A",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K75P",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天瑞",
+      "destination": "天瑞",
+      "days": {
+        "weekday": {
+          "first": "05:40",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "05:40",
+              "end": "23:40",
+              "headway": "10-15"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "05:40",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "05:40",
+              "end": "23:40",
+              "headway": "10-15"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "05:40",
+          "last": "23:40",
+          "periods": [
+            {
+              "start": "05:40",
+              "end": "23:40",
+              "headway": "10-15"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K75P",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K75S",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天水圍站 ",
+      "destination": "天水圍站 ",
+      "days": {
+        "weekday": {
+          "first": "07:00",
+          "last": "20:00",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "09:00",
+              "headway": "12-15"
+            },
+            {
+              "start": "17:30",
+              "end": "20:00",
+              "headway": "12-15"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K75S",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K76",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天恆",
+      "destination": "天水圍站 ",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "22:50",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "22:50",
+              "headway": "3-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "22:50",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "22:50",
+              "headway": "6-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "22:50",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "22:50",
+              "headway": "7-10"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K76",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K76",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天水圍站 ",
+      "destination": "天恆",
+      "days": {
+        "weekday": {
+          "first": "06:00",
+          "last": "23:05",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:05",
+              "headway": "3-10"
+            }
+          ]
+        },
+        "saturday": {
+          "first": "06:00",
+          "last": "23:05",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:05",
+              "headway": "6-10"
+            }
+          ]
+        },
+        "sunday_public_holiday": {
+          "first": "06:00",
+          "last": "23:05",
+          "periods": [
+            {
+              "start": "06:00",
+              "end": "23:05",
+              "headway": "7-10"
+            }
+          ]
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K76",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K76S",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "濕地公園路(近天葵路)",
+      "destination": "天盛苑",
+      "days": {
+        "weekday": {
+          "first": "07:00",
+          "last": "09:35",
+          "periods": [
+            {
+              "start": "07:00",
+              "end": "09:35",
+              "headway": "5-30"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K76S",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    },
+    {
+      "operator": "MTRB",
+      "route": "K76S",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "regular",
+      "origin": "天盛苑",
+      "destination": "濕地公園路(近天葵路)",
+      "days": {
+        "weekday": {
+          "first": "18:25",
+          "last": "20:25",
+          "periods": [
+            {
+              "start": "18:25",
+              "end": "20:25",
+              "headway": "30"
+            }
+          ]
+        },
+        "saturday": {
+          "noService": true
+        },
+        "sunday_public_holiday": {
+          "noService": true
+        }
+      },
+      "source": {
+        "url": "https://www.mtr.com.hk/ch/customer/services/searchBusRouteDetails.php?routeID=K76S",
+        "lastVerified": "2026-09-19",
+        "effectiveDate": "官方現行時間表（頁面未列明生效日）"
+      }
+    }
+  ]
+}

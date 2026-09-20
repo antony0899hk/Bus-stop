@@ -163,30 +163,14 @@ function variants(r) {
     .filter(x => { const k = `${x.bound}|${x.routeId || ""}|${x.serviceType}|${x.dest}`; if (seen.has(k)) return false; seen.add(k); return true; });
 }
 function routeServiceSummary(r) {
-  // Timetables describe departures at the terminus, never live stop ETA.
-  const s = r.schedule;
-  let body = '<strong>時間表未接入</strong>';
-  if (s && Array.isArray(s.periods) && s.periods.length) {
-    body = s.periods.map(p => {
-      const day = escapeHtml(p.days || '');
-      const times = Array.isArray(p.departures) && p.departures.length
-        ? p.departures.map(escapeHtml).join('、')
-        : [p.first, p.last].every(Boolean) ? escapeHtml(p.first) + '–' + escapeHtml(p.last) : '時間未提供';
-      const frequency = p.headway ? '<span>' + escapeHtml(p.headway) + ' 分鐘一班</span>' : '';
-      return '<div class="service-period"><small>' + day + '</small><strong>' + times + '</strong>' + frequency + '</div>';
-    }).join('');
-  }
-  let link = '';
-  if (r.operator === 'KMB') link = 'https://search.kmb.hk/KMBWebSite/?action=routesearch&lang=zh-hk&route=' + encodeURIComponent(r.route);
-  if (r.operator === 'CTB') link = 'https://www.citybus.com.hk/';
-  if (link) body += '<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer">官方時間表 ↗</a>';
-  return '<div class="route-next-arrival route-service"><small>服務時間／總站開車</small>' + body + '</div>';
+  return window.dzTimetable?.placeholder?.() || '<div class="route-next-arrival route-service"><small>服務時間／總站開車</small><strong>時間表載入中…</strong></div>';
 }
 
 async function renderRouteDetail() {
   const r = state.selectedRoute;
   if (!r) return;
   $("#routeHeader").innerHTML = `<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(r.route)}</div><div class="dest">${escapeHtml(r.orig)} ↔ ${escapeHtml(r.dest)}</div><div class="route-meta">${operatorBadge(r.operator)}<span class="dz-full-fare">車費載入中</span></div></div>${routeServiceSummary(r)}</div>`;
+  window.dzTimetable?.render?.(r, $("[data-route-timetable]")).catch(() => {});
   const vv = variants(r);
   $("#directionTabs").innerHTML = vv.slice(0, 6).map((x, i) => `<button data-variant="${i}" class="${x.bound === r.bound && x.dest === r.dest && x.routeId === r.routeId ? "active" : ""}">往 ${escapeHtml(x.dest)}</button>`).join("");
   $$("[data-variant]").forEach(b => b.addEventListener("click", () => { const x = vv[Number(b.dataset.variant)]; if (x) { state.selectedRoute = x; renderRouteDetail(); } }));
