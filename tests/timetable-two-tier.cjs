@@ -24,18 +24,18 @@ function contextWith(fetchImpl){const warnings=[];const context={window:{},local
   const night=api.basicDays({287:[1380,90]},service.calendars);
   assert.equal(night.weekday.first,1380);assert.equal(night.weekday.last,1530);assert.equal(api.formatMinutes(1530),'翌日 01:30');
   const detailedOvernight=api.renderRecord({...detail,days:{...detail.days,weekday:{first:'06:30',last:'00:45',periods:[{start:'19:55',end:'00:45',headway:'15-20'}]}}},false);
-  assert.match(detailedOvernight,/尾班 <strong>翌日 00:45/);assert.match(detailedOvernight,/19:55–翌日 00:45/);
+  assert.match(detailedOvernight,/尾班 <strong>翌日 00:45/);assert.doesNotMatch(detailedOvernight,/19:55–翌日 00:45/);
 
   // Detailed data has priority even when a service-window fallback exists.
   responses.set('./data/route-timetables.json',detailDb);responses.set('./service-calendars.json',{generated:service.meta.generated,calendarShards:1,shards:1});responses.set('./service-calendars-0.json',service.calendars);responses.set('./service-windows-0.json',service.windows);
   c=contextWith(async url=>response(responses.get(url)));let target={innerHTML:''};
   await c.window.dzTimetable.render({operator:'KMB',route:'1',bound:'O',serviceType:'1'},target);
-  assert.match(target.innerHTML,/詳細官方時間表/);assert.match(target.innerHTML,/10-15 分鐘/);assert.doesNotMatch(target.innerHTML,/班次間隔暫未提供/);
+  assert.match(target.innerHTML,/詳細官方時間表/);assert.doesNotMatch(target.innerHTML,/10-15 分鐘/);assert.doesNotMatch(target.innerHTML,/班次間隔暫未提供/);
 
   // Missing detail falls back to service windows without inventing headways.
   responses.set('./data/route-timetables.json',{schemaVersion:1,records:[]});store.clear();c=contextWith(async url=>response(responses.get(url)));target={innerHTML:''};
   await c.window.dzTimetable.render({operator:'KMB',route:'270A',bound:'O',serviceType:'1'},target);
-  assert.match(target.innerHTML,/基本服務時間/);assert.match(target.innerHTML,/首班 <strong>05:30/);assert.match(target.innerHTML,/尾班 <strong>翌日 01:00/);assert.match(target.innerHTML,/班次間隔暫未提供/);
+  assert.match(target.innerHTML,/基本服務時間/);assert.match(target.innerHTML,/首班 <strong>05:30/);assert.match(target.innerHTML,/尾班 <strong>翌日 01:00/);assert.doesNotMatch(target.innerHTML,/班次間隔暫未提供/);
 
   // A wrong bound is not silently swapped and produces a development diagnostic.
   target={innerHTML:''};await c.window.dzTimetable.render({operator:'KMB',route:'ONLY-I',bound:'O',serviceType:'1'},target);
