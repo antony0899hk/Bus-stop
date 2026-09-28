@@ -6,6 +6,7 @@
   let showNoEta = false;
   const selectedDirections = new Map();
   const controllers = new Set();
+  let gmbRouteCatalog = null, gmbStopCatalog = null;
   const pause = () => new Promise(r => setTimeout(r, 0));
   function cancel() { generation++; for (const c of controllers) c.abort(); controllers.clear(); const button=$('#locateBtn'); if(button)button.disabled=false; }
   async function json(url, options = {}) {
@@ -148,6 +149,59 @@
       if (!old || (eta && (!old.eta || new Date(eta) < new Date(old.eta))) || (!eta && !old.eta && row.distance < old.distance)) rows.set(key,row);
     }
   }
+  async function loadGmbRoutes(token) {
+    if (gmbRouteCatalog) return gmbRouteCatalog;
+    const parts=await Promise.allSettled(Array.from({length:8},(_,i)=>json(`./gmb-routes-${i}.json?v=${window.DZ_BUILD || '5.3.2'}`)));
+    if(token!==generation)return new Map();
+    const routes=parts.flatMap(x=>x.status==='fulfilled'&&Array.isArray(x.value.data)?x.value.data:[]);
+    gmbRouteCatalog=new Map(routes.map(r=>[[String(r.routeId),String(r.routeSeq)].join('|'),r]));
+    return gmbRouteCatalog;
+  }
+  async function addGmbStops(pos, selected, token, found, seenStops) {
+    if(!gmbStopCatalog){
+      const parts=await Promise.allSettled(Array.from({length:16},(_,i)=>json(`./gmb-stops-${i}.json?v=${window.DZ_BUILD || '5.3.2'}`)));
+      if(token!==generation)return 0;
+      const loaded=parts.filter(x=>x.status==='fulfilled'&&Array.isArray(x.value.data));
+      if(loaded.length)gmbStopCatalog={partCount:loaded.length,data:loaded.flatMap(x=>x.value.data)};
+    }
+    if(token!==generation||!gmbStopCatalog)return 0;
+    const catalog=gmbStopCatalog.data;
+        for(let i=0;i<catalog.length;i++) {
+          if(token!==generation)return 0;
+          const s=catalog[i],lat=Number(s.lat),lon=Number(s.long ?? s.lng ?? s.longitude);
+          if(!Number.isFinite(lat)||!Number.isFinite(lon)||s.enabled===false)continue;
+          const distance=distanceMeters(pos.lat,pos.lon,lat,lon),id=String(s.stop||s.id),key='GMB|'+id;
+          if(distance<=selected&&!seenStops.has(key)){
+            seenStops.add(key);
+            found.push({operator:'GMB',stopId:id,stopName:s.name_tc||'',lat,lon,distance,routes:Array.isArray(s.routes)?s.routes:[]});
+          }
+          if(i%350===349)await pause();
+        }
+    return gmbStopCatalog.partCount;
+  }
+  async function mergeGmbStop(stop, token, rows, routeCatalog) {
+    const refs=[...new Map((stop.routes||[]).map(r=>[[r.routeId,r.routeSeq,r.stopSeq].join('|'),r])).values()];
+    let failed=0;
+    for(const ref of refs) {
+      if(token!==generation)return failed;
+      const meta=routeCatalog.get([String(ref.routeId),String(ref.routeSeq)].join('|'))||{};
+      const route=String(ref.route||meta.route||'').trim();
+      if(!route)continue;
+      const bound=meta.bound||(Number(ref.routeSeq)===1?'O':'I');
+      const serviceType=String(meta.serviceType||ref.routeSeq||1);
+      const dest=meta.dest||'';
+      const key=['GMB',meta.region||'',route,bound,dest,ref.routeId,ref.routeSeq].join('|');
+      const base={...stop,key,route,bound,serviceType,dest,region:meta.region||'',routeId:String(ref.routeId||''),routeSeq:Number(ref.routeSeq||1),stopSeq:Number(ref.stopSeq||1)};
+      try {
+        const j=await json(`${GMB_API}/eta/route-stop/${encodeURIComponent(ref.routeId)}/${encodeURIComponent(ref.routeSeq)}/${encodeURIComponent(ref.stopSeq)}`);
+        if(token!==generation)return failed;
+        const etas=j.data?.enabled===false?[]:(j.data?.eta||[]).map(e=>e.timestamp).filter(validFutureEta).sort((a,b)=>new Date(a)-new Date(b));
+        rows.set(key,{...base,eta:etas[0]||null});
+      } catch(e) { failed++; rows.set(key,{...base,eta:null,error:true}); }
+      publish(rows);await pause();
+    }
+    return failed;
+  }
   async function findStops(pos, selected, token) {
     const found = []; const seenStops=new Set(); let sources = 0;
     for (const [operator,path] of [['KMB','kmb-stops.json'],['CTB','ctb-stops.json']]) {
@@ -167,6 +221,8 @@
         }
       } catch (e) { if (token !== generation) return {found:[],sources}; }
     }
+    const gmbParts=await addGmbStops(pos,selected,token,found,seenStops);
+    if(gmbParts)sources++;
     return {found:found.sort((a,b)=>a.distance-b.distance),sources};
   }
   async function run(position, selected, token) {
@@ -176,14 +232,19 @@
       if (token !== generation) return;
       const rows=new Map(); let completed=0, failed=0;
       const mtrSchedules=new Map();
+      const gmbRoutes=busStops.some(s=>s.operator==='GMB')?await loadGmbRoutes(token):new Map();
+      if(token!==generation)return;
       const extra=await addMtr({lat:position.coords.latitude,lon:position.coords.longitude},selected,token,rows);
       if(token!==generation)return;
       const stops=[...busStops,...extra.stops];
       if(!sources&&!rows.size)throw Error('站點資料未能載入');
       for (const stop of stops) {
         if (token !== generation) return;
-        status.textContent=`${selected}m：已讀取 ${completed}/${stops.length} 個站／路線（九巴／城巴／港鐵巴士）`;
+        status.textContent=`${selected}m：已讀取 ${completed}/${stops.length} 個站／路線（九巴／城巴／小巴／港鐵巴士）`;
         try {
+          if(stop.operator==='GMB'){
+            failed+=await mergeGmbStop(stop,token,rows,gmbRoutes);completed++;publish(rows);await pause();continue;
+          }
           const url=stop.operator==='KMB' ? `${KMB_API}/stop-eta/${encodeURIComponent(stop.stopId)}` : `https://rt.data.gov.hk/v1/transport/batch/stop-eta/CTB/${encodeURIComponent(stop.stopId)}`;
           let j;
           if(stop.operator==='MTRB'){
@@ -206,7 +267,7 @@
       }
       if (token !== generation) return;
       render();
-      status.textContent=`${selected}m：${stops.length} 個站、${groupRoutes([...rows.values()]).length} 個路線／車站。九巴／城巴／港鐵／港鐵巴士${extra.failures.length?`；未能載入：${extra.failures.join("、")}`:""}${sources<2?'；部分站點來源載入失敗':''}${failed?`；${failed} 個站讀取失敗，結果未齊`:''}。未有 ETA 不代表停駛。`;
+      status.textContent=`${selected}m：${stops.length} 個站、${groupRoutes([...rows.values()]).length} 個路線／車站。九巴／城巴／小巴／港鐵／港鐵巴士${extra.failures.length?`；未能載入：${extra.failures.join("、")}`:""}${sources<3?'；部分站點來源載入失敗':''}${failed?`；${failed} 個預報讀取失敗，結果未齊`:''}。未有 ETA 不代表停駛。`;
     } catch(e) { if (token===generation) status.textContent=`搜尋未完成：${e.message}，可再次搜尋。`; }
     finally { if (token===generation) $('#locateBtn').disabled=false; }
   }
@@ -225,7 +286,7 @@
   const controls=document.createElement('div');
   controls.innerHTML='<div class="filter-row near-radius-controls"><button type="button" data-radius-step="-50" class="filter" disabled aria-label="縮細搜尋範圍 50 米">−50 米</button><strong id="nearRadiusValue" aria-live="polite">50 米</strong><button type="button" data-radius-step="50" class="filter" aria-label="擴大搜尋範圍 50 米">＋50 米</button></div>';
   $('.nearby-panel').appendChild(controls);
-  for(const b of document.querySelectorAll('[data-near-filter]')) if(!['all','KMB','CTB','MTR','MTRB'].includes(b.dataset.nearFilter)) b.hidden=true;
+  for(const b of document.querySelectorAll('[data-near-filter]')) if(!['all','KMB','CTB','GMB','MTR','MTRB'].includes(b.dataset.nearFilter)) b.hidden=true;
   renderNearby=render;
   window.addEventListener('click',e=>{
     const swap=e.target.closest?.('[data-near-switch]');
@@ -240,5 +301,5 @@
     if(card) { e.stopImmediatePropagation(); const x=state.nearby.find(x=>x.key===card.dataset.nearKey); if(!x)return;if(x.kind==='rail'){openRailway(x);return;}if(x.operator==='MTRB'){openRoute({...x,region:x.mtrBusRegion});return;}const r=normalizedRoutes().find(r=>r.operator===x.operator&&String(r.route)===String(x.route)&&r.bound===x.bound&&String(r.serviceType)===x.serviceType); if(r)openRoute(r);else{$('#routeSearch').value=x.route;state.searchFilter=x.operator;renderSearch();} }
   },true);
   window.addEventListener('pagehide',cancel);
-  window.dzNearby={version:'5.3.1',search,cancel,findStops,mergeRows,addMtr,groupRoutes};
+  window.dzNearby={version:'5.4.0',search,cancel,findStops,mergeRows,mergeGmbStop,addMtr,groupRoutes};
 })();
