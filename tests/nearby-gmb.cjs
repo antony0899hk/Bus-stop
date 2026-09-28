@@ -1,0 +1,22 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const nodes=new Map();
+const node=s=>{if(!nodes.has(s))nodes.set(s,{classList:{add(){},remove(){},toggle(){}},appendChild(){},replaceChildren(){},textContent:'',innerHTML:'',disabled:false});return nodes.get(s)};
+const filters=['all','KMB','CTB','GMB','NLB','MTR','MTRB'].map(f=>({dataset:{nearFilter:f},hidden:false}));
+const future=new Date(Date.now()+10*60000).toISOString();
+const requests=[];
+const ctx={console,setTimeout,clearTimeout,AbortController,Map,Set,Number,Date,Infinity,encodeURIComponent,GMB_API:'https://data.etagmb.gov.hk',state:{nearby:[],nearbyFilter:'all'},renderNearby(){},escapeHtml:String,operatorBadge:String,etaLabel:()=>'',validFutureEta:x=>new Date(x)>new Date(),distanceMeters:()=>20,KMB_API:'kmb',navigator:{},document:{querySelector:node,querySelectorAll:s=>s==='[data-near-filter]'?filters:[],createElement:()=>node('controls')},window:{DZ_BUILD:'test',addEventListener(){}},fetch:async url=>{requests.push(url);let data=[];if(url.includes('gmb-stops-0.json'))data=[{stop:'2001',name_tc:'測試小巴站',lat:22,long:114,enabled:true,routes:[{route:'55K',routeId:'9001',routeSeq:1,stopSeq:2},{route:'55K',routeId:'9001',routeSeq:1,stopSeq:2}]}];if(url.includes('/eta/route-stop/'))return {ok:true,json:async()=>({data:{enabled:true,eta:[{timestamp:future}]}})};return {ok:true,json:async()=>({data})};}};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../nearby.js'),'utf8'),ctx);
+(async()=>{
+  assert.equal(filters.find(f=>f.dataset.nearFilter==='GMB').hidden,false);
+  const found=await ctx.window.dzNearby.findStops({lat:22,lon:114},50,0);
+  const stop=found.found.find(s=>s.operator==='GMB');
+  assert.ok(stop);assert.equal(stop.stopName,'測試小巴站');assert.equal(stop.routes.length,2);
+  const rows=new Map();
+  const catalog=new Map([['9001|1',{route:'55K',routeId:'9001',routeSeq:1,bound:'O',serviceType:'1',region:'NT',dest:'上水站'}]]);
+  const failed=await ctx.window.dzNearby.mergeGmbStop(stop,0,rows,catalog);
+  assert.equal(failed,0);assert.equal(rows.size,1);
+  const row=[...rows.values()][0];
+  assert.equal(row.operator,'GMB');assert.equal(row.route,'55K');assert.equal(row.dest,'上水站');assert.equal(row.eta,future);
+  assert.equal(requests.filter(url=>url.includes('/eta/route-stop/')).length,1);
+  console.log('Passed: nearby GMB stops load from segmented catalog, duplicate route refs collapse, and official ETA is merged.');
+})().catch(e=>{console.error(e);process.exitCode=1});

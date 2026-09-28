@@ -5,8 +5,8 @@ vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(
 (async()=>{
 const rows=new Map();ctx.window.dzNearby.mergeRows({operator:'KMB',stopId:'a',distance:10},Array.from({length:60},(_,i)=>({route:String(i),dir:'O',eta:null})),rows);assert.equal(rows.size,60);
 ctx.window.dzNearby.mergeRows({operator:'KMB',distance:50},[{route:'0',dir:'O',eta:'2099-01-01'}],rows);assert.equal(rows.size,60);assert.equal(rows.get('KMB|0|O||1').eta,'2099-01-01');
-const r=await ctx.window.dzNearby.findStops({lat:22,lon:114},100,0);assert.equal(r.found.length,100);assert.equal(r.sources,2);
+const r=await ctx.window.dzNearby.findStops({lat:22,lon:114},100,0);assert.equal(r.found.length,150);assert.equal(r.sources,3);
 ctx.window.dzNearby.search(400);const old=callbacks.position;ctx.window.dzNearby.search(100);old({coords:{latitude:22,longitude:114}});assert.equal(ctx.state.nearby.length,0);assert.equal(node('#nearbyStatus').textContent,'正在取得位置…');
 ctx.window.dzNearby.cancel();const cancelled=await ctx.window.dzNearby.findStops({lat:22,lon:114},100,0);assert.equal(cancelled.found.length,0);
-console.log('Passed: 60 routes including no ETA; 100 stops without truncation; route deduplication; stale GPS ignored; cancelled scan ignored.');
+console.log('Passed: 60 routes including no ETA; KMB/CTB/GMB stops without truncation; route deduplication; stale GPS ignored; cancelled scan ignored.');
 })().catch(e=>{console.error(e);process.exitCode=1});
