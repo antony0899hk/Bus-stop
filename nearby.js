@@ -88,14 +88,20 @@
 
   const normalizeRoute = value => String(value || '').trim().toUpperCase();
   const normalizeDest = value => String(value || '').normalize('NFKC').replace(/\s+/g,'').trim();
+  const directionId = row => [row.bound||'', normalizeDest(row.dest)].join('|');
+  function routeGroupKey(row) {
+    const route=normalizeRoute(row.route);
+    if(row.kind==='rail') return 'MTR|'+row.stopId;
+    return [row.operator,row.operator==='GMB'?(row.region||''):'',route].join('|');
+  }
   function groupRoutes(input) {
     const groups = new Map();
     for (const row of input) {
       const route = normalizeRoute(row.route);
-      const key = row.kind === 'rail' ? 'MTR|'+row.stopId : [row.operator,row.operator==='GMB'?(row.region||''):'',route].join('|');
+      const key = routeGroupKey(row);
       if (!groups.has(key)) groups.set(key,{key,operator:row.operator,route:row.route,directions:[]});
       const group=groups.get(key);
-      const directionKey=row.kind==='rail'?String(row.stopId):[row.bound||'',normalizeDest(row.dest)].join('|');
+      const directionKey=row.kind==='rail'?String(row.stopId):directionId(row);
       const existing=group.directions.find(x=>x.directionKey===directionKey);
       if(!existing) group.directions.push({...row,directionKey,members:[row]});
       else {
@@ -142,7 +148,7 @@
       const bound=x.dir || x.bound || 'O';
       const catalog=stop.operator==='CTB'?state.ctbRoutes:state.kmbRoutes;
       const meta=(catalog||[]).find(r=>normalizeRoute(r.route)===normalizeRoute(x.route)&&(stop.operator==='CTB'||r.bound===bound&&String(r.service_type||'1')===String(x.service_type||'1')));
-      const dest=x.dest_tc || (stop.operator==='CTB'&&bound==='I'?meta?.orig_tc:meta?.dest_tc) || '';
+      const dest=x.dest_tc || (bound==='I'?meta?.orig_tc:meta?.dest_tc) || '';
       const key = [stop.operator,x.route,bound,dest,x.service_type || '1'].join('|');
       const row = {...stop,key,route:x.route,dest,bound,serviceType:String(x.service_type || '1'),eta};
       const old = rows.get(key);
