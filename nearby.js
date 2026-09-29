@@ -4,6 +4,7 @@
   const PAGE_SIZE = 10;
   let radius = 50, generation = 0, shown = PAGE_SIZE;
   let showNoEta = false;
+  let countdownTimer = null;
   const selectedDirections = new Map();
   const controllers = new Set();
   let gmbRouteCatalog = null, gmbStopCatalog = null;
@@ -125,6 +126,16 @@
   function activeRow(group) {
     return group.directions.find(x=>x.directionKey===selectedDirections.get(group.key)) || group.directions[0];
   }
+  function refreshCountdown() {
+    for(const node of document.querySelectorAll('[data-near-eta]')){
+      const eta=node.dataset.nearEta;
+      if(eta)node.textContent=etaLabel(eta);
+    }
+  }
+  function startCountdown() {
+    if(countdownTimer!==null||typeof setInterval!=='function')return;
+    countdownTimer=setInterval(()=>{if(!document.hidden)refreshCountdown();},10000);
+  }
   function render() {
     const groups=visibleGroups();
     const hasForecast=g=>g.directions.some(x=>x.kind==='rail'||x.eta&&!x.error);
@@ -135,7 +146,8 @@
     $('#nearbyResults').innerHTML=displayed.slice(0,shown).map(group=>{
       const x=activeRow(group);
       const toggle=x.kind!=='rail'&&group.directions.length>1 ? `<button type="button" class="near-direction-switch" data-near-switch="${escapeHtml(group.key)}" aria-label="${escapeHtml(x.route)} 切換方向" title="切換方向">⇄</button>` : '';
-      return `<article class="near-card near-route-group"><button type="button" class="near-main" data-near-key="${escapeHtml(x.key)}"><div>${operatorBadge(x.operator)}</div><div><div class="near-route">${escapeHtml(x.route)}</div><div class="near-dest">→ ${escapeHtml(x.dest||'目的地未提供')}</div><div class="near-meta">${escapeHtml(x.stopName)} · ${Math.round(x.distance)}m</div></div><div class="near-eta">${escapeHtml(x.kind==='rail'?'查看班次':x.error?'更新失敗':etaLabel(x.eta))}</div></button>${toggle}</article>`;
+      const liveEta=x.kind!=='rail'&&!x.error&&x.eta?` data-near-eta="${escapeHtml(x.eta)}"`:'';
+      return `<article class="near-card near-route-group"><button type="button" class="near-main" data-near-key="${escapeHtml(x.key)}"><div>${operatorBadge(x.operator)}</div><div><div class="near-route">${escapeHtml(x.route)}</div><div class="near-dest">→ ${escapeHtml(x.dest||'目的地未提供')}</div><div class="near-meta">${escapeHtml(x.stopName)} · ${Math.round(x.distance)}m</div></div><div class="near-eta"${liveEta}>${escapeHtml(x.kind==='rail'?'查看班次':x.error?'更新失敗':etaLabel(x.eta))}</div></button>${toggle}</article>`;
     }).join('')||(noEtaCount&&!showNoEta?'<div class="empty">附近路線暫時未有預報，撳「更多」查看；未有預報不代表停駛。</div>':'<div class="empty">此範圍暫時未有結果，可撳「＋50 米」擴大搜尋。</div>');
     $('#nearbyMore').classList.toggle('hidden',displayed.length<=shown&&(showNoEta||!noEtaCount));
     $('#nearbyMore').textContent=!showNoEta&&noEtaCount?`更多（包括 ${noEtaCount} 條未有預報路線）`:`顯示更多（尚有 ${Math.max(0,displayed.length-shown)} 個）`;
@@ -294,6 +306,9 @@
   $('.nearby-panel').appendChild(controls);
   for(const b of document.querySelectorAll('[data-near-filter]')) if(!['all','KMB','CTB','GMB','MTR','MTRB'].includes(b.dataset.nearFilter)) b.hidden=true;
   renderNearby=render;
+  startCountdown();
+  window.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCountdown();});
+  window.addEventListener('pageshow',()=>{startCountdown();refreshCountdown();});
   window.addEventListener('click',e=>{
     const swap=e.target.closest?.('[data-near-switch]');
     if(swap){e.preventDefault();e.stopImmediatePropagation();const group=visibleGroups().find(g=>g.key===swap.dataset.nearSwitch);if(!group)return;const active=activeRow(group);const next=group.directions[(group.directions.indexOf(active)+1)%group.directions.length];selectedDirections.set(group.key,next.directionKey);render();const replacement=[...document.querySelectorAll('[data-near-switch]')].find(b=>b.dataset.nearSwitch===group.key);replacement?.focus({preventScroll:true});return;}
@@ -306,6 +321,6 @@
     const card=e.target.closest?.('[data-near-key]');
     if(card) { e.stopImmediatePropagation(); const x=state.nearby.find(x=>x.key===card.dataset.nearKey); if(!x)return;if(x.kind==='rail'){openRailway(x);return;}if(x.operator==='MTRB'){openRoute({...x,region:x.mtrBusRegion});return;}const r=normalizedRoutes().find(r=>r.operator===x.operator&&String(r.route)===String(x.route)&&r.bound===x.bound&&String(r.serviceType)===x.serviceType); if(r)openRoute(r);else{$('#routeSearch').value=x.route;state.searchFilter=x.operator;renderSearch();} }
   },true);
-  window.addEventListener('pagehide',cancel);
-  window.dzNearby={version:'5.4.0',search,cancel,findStops,mergeRows,mergeGmbStop,addMtr,groupRoutes};
+  window.addEventListener('pagehide',()=>{cancel();if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null;}});
+  window.dzNearby={version:'5.4.1',search,cancel,findStops,mergeRows,mergeGmbStop,addMtr,groupRoutes,refreshCountdown};
 })();

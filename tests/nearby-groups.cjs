@@ -1,7 +1,8 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
 const nodes=new Map();const node=s=>{if(!nodes.has(s))nodes.set(s,{classList:{add(){},remove(){},toggle(){}},appendChild(){},replaceChildren(){},textContent:'',innerHTML:'',disabled:false});return nodes.get(s)};
 const handlers={};let requests=0,gps=0;
-const ctx={console,setTimeout,clearTimeout,AbortController,Map,Set,Number,Date,Infinity,encodeURIComponent,state:{nearby:[],nearbyFilter:'all'},renderNearby(){},escapeHtml:String,operatorBadge:String,etaLabel:()=>'',validFutureEta:x=>!!x,distanceMeters:()=>20,KMB_API:'kmb',navigator:{geolocation:{getCurrentPosition(){gps++}}},document:{querySelector:node,querySelectorAll:()=>[],createElement:()=>node('controls')},window:{DZ_BUILD:'test',addEventListener(k,f){handlers[k]=f}},fetch:async()=>{requests++;throw Error('unexpected fetch')}};
+let countdownTick=null;
+const ctx={console,setTimeout,clearTimeout,setInterval(fn){countdownTick=fn;return 1},clearInterval(){countdownTick=null},AbortController,Map,Set,Number,Date,Infinity,encodeURIComponent,state:{nearby:[],nearbyFilter:'all'},renderNearby(){},escapeHtml:String,operatorBadge:String,etaLabel:iso=>iso?`${Math.max(0,Math.round((new Date(iso)-new Date())/60000))} 分鐘`:'未有預報',validFutureEta:x=>!!x,distanceMeters:()=>20,KMB_API:'kmb',navigator:{geolocation:{getCurrentPosition(){gps++}}},document:{hidden:false,querySelector:node,querySelectorAll:()=>[],createElement:()=>node('controls')},window:{DZ_BUILD:'test',addEventListener(k,f){handlers[k]=f}},fetch:async()=>{requests++;throw Error('unexpected fetch')}};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../nearby.js'),'utf8'),ctx);
 const mk=(key,bound,dest,serviceType='1',operator='KMB',route='73K')=>({key,operator,route,bound,dest,serviceType,stopName:'stop',distance:20,eta:null});
 ctx.state.nearby=[mk('a','O','上水'),mk('b','O',' 上水 ','2'),mk('c','I','文錦渡'),mk('d','I','文錦渡','2'),mk('e','O','藍田','1','KMB','277B'),mk('f','I','上水','1','KMB','277B')];
@@ -42,3 +43,11 @@ moreClick();assert.equal(cardCount(),35);
 handlers.click({target:{closest:s=>s==='#nearbyCollapseTop'?{}:null},stopImmediatePropagation(){}});
 assert.equal(cardCount(),10);assert.equal(requests,0);
 console.log('Passed: initial 10; progressive render remains collapsed; More adds 10; collapse restores 10; no extra network requests.');
+
+const liveNode={dataset:{nearEta:new Date(Date.now()+61000).toISOString()},textContent:''};
+ctx.document.querySelectorAll=s=>s==='[data-near-eta]'?[liveNode]:[];
+const beforeCountdown={requests,gps};
+ctx.window.dzNearby.refreshCountdown();assert.match(liveNode.textContent,/1 分鐘/);
+liveNode.dataset.nearEta=new Date(Date.now()+1000).toISOString();countdownTick();assert.match(liveNode.textContent,/0 分鐘/);
+assert.deepEqual({requests,gps},beforeCountdown);
+console.log('Passed: visible nearby ETA countdown refreshes locally without API or GPS calls.');
