@@ -1,31 +1,15 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),path=require('node:path');
-
-const kmbStops=new Map([
-  ['A',{name_tc:'起點站',lat:22.3000,long:114.1000}],
-  ['B',{name_tc:'中途站',lat:22.3010,long:114.1010}],
-  ['C',{name_tc:'目的地站',lat:22.3020,long:114.1020}]
-]);
-const ctbStops=new Map([['D',{name_tc:'另一目的地站',lat:22.3021,long:114.1021}]]);
 const document={readyState:'loading',addEventListener(){},querySelector(){return null},querySelectorAll(){return []}};
 const window={};
-const ctx={console,window,document,state:{kmbStops,ctbStops,kmbRoutes:[],ctbRoutes:[]},
-  ensureStopCatalog:async()=>{},distanceMeters(a,b,c,d){return Math.hypot((c-a)*111000,(d-b)*102000)},
-  setTimeout,clearTimeout,Date,Math,Number,String,Promise};
-vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname,'../journey-v5.5.js'),'utf8'),ctx);
-
-(async()=>{
-  const api=window.dzJourney;
-  const named=await api.resolvePlace('目的地站');
-  assert.equal(named[0].id,'C');
-  const nearby=await api.resolvePlace('',{lat:22.3000,lon:114.1000});
-  assert.equal(nearby[0].id,'A');
-  const hit=api.destinationHit(
-    [{operator:'KMB',id:'A',lat:22.3,lon:114.1},{operator:'KMB',id:'B',lat:22.301,lon:114.101},{operator:'KMB',id:'C',lat:22.302,lon:114.102}],
-    0,named,{lat:22.302,lon:114.102}
-  );
-  assert.equal(hit.stop.id,'C');
-  assert.equal(hit.index,2);
-  assert(api.score({journeyMinutes:10,walkMeters:100,transferCount:0})<api.score({journeyMinutes:20,walkMeters:0,transferCount:0}));
-  console.log('Passed: point-to-point V1 resolves places, expands only forward stops, and ranks direct journeys.');
-})().catch(error=>{console.error(error);process.exitCode=1;});
+const ctx={console,window,document,setTimeout,clearTimeout,Date,Math,Number,String,Promise,Map,Set,AbortController};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../journey-v5.5.js'),'utf8'),ctx);
+const api=window.dzJourney;
+const address=api.parseAddressResponse({SuggestedAddress:[{Address:{PremisesAddress:{ChiPremisesAddress:{BuildingName:'港鐵上水站'},GeospatialInformation:{Latitude:'22.50149',Longitude:'114.12779'}}},ValidationInformation:{Score:50}}]},'上水站');
+assert.deepEqual(JSON.parse(JSON.stringify(address)),{lat:22.50149,lon:114.12779,name:'港鐵上水站',score:50});
+assert(api.tileKeys({lat:22.5,lon:114.12},50).length>0);
+const prepared={seed:{operator:'KMB'},originIndex:0,sequence:[{id:'A'},{id:'B'},{id:'C'}]};
+const hit=api.destinationHitByIds(prepared,[{operator:'KMB',id:'B',distance:80},{operator:'KMB',id:'C',distance:30}]);
+assert.equal(hit.stop.id,'C');assert.equal(hit.index,2);
+assert(api.score({journeyMinutes:10,walkMeters:100,transferCount:0})<api.score({journeyMinutes:20,walkMeters:0,transferCount:0}));
+assert(!fs.readFileSync(path.join(__dirname,'../journey-v5.5.js'),'utf8').includes('ensureStopCatalog'));
+console.log('Passed: point-to-point uses address coordinates and spatial tiles without loading the full HK stop catalog.');

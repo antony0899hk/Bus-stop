@@ -13,3 +13,6 @@
 .journey-card-button:active { opacity: .72; }
 .journey-card-button .journey-main { width: 100%; }
 .journey-mtr-card { border-color: rgba(25, 103, 177, .35); }
+.journey-planner #journeyQuickPlaces,
+.journey-planner #journeyRecentPlaces { display: none; }
+.journey-planner #journeyFrom[readonly] { opacity: .78; }

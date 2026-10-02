@@ -109,7 +109,9 @@
   }
 
   function mtrStationApproxCoords(station) {
-    if (!station || typeof allJourneyStops !== "function") return null;
+    if (!station) return null;
+    if (Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lon))) return {lat:Number(station.lat),lon:Number(station.lon)};
+    if (typeof allJourneyStops !== "function") return null;
     const q = String(station.name_tc||"").replace(/站$/,'');
     if (!q) return null;
     const candidates=allJourneyStops().filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)&&String(s.name||'').includes(q));
@@ -132,14 +134,19 @@
     if (extra.mtrRows.length) return;
     if (extra.mtrPromise) return extra.mtrPromise;
     extra.mtrPromise=(async()=>{
-      const lr=await fetch(MTR_LINES_CSV,{cache:"force-cache"}).then(r=>{if(!r.ok)throw new Error(`MTR lines HTTP ${r.status}`);return r.text();});
+      const [lr,coordinateData]=await Promise.all([
+        fetch(MTR_LINES_CSV,{cache:"force-cache"}).then(r=>{if(!r.ok)throw new Error(`MTR lines HTTP ${r.status}`);return r.text();}),
+        fetch(`./runtime/mtr-stations.json?v=${encodeURIComponent(window.DZ_BUILD||"5.5.1")}`,{cache:"force-cache"}).then(r=>r.ok?r.json():{data:[]}).catch(()=>({data:[]}))
+      ]);
+      const coordinateMap=new Map((coordinateData.data||[]).map(s=>[String(s.code),s]));
       const rows=csvParse(lr);
       const header=rows.shift().map(x=>String(x).trim().toUpperCase());
       const idx=(...names)=>{for(const n of names){const i=header.indexOf(n);if(i>=0)return i;}return -1;};
       const iLine=idx("LINE_CODE","LINE CODE"), iDir=idx("DIRECTION"), iCode=idx("STATION_CODE","STATION CODE"), iId=idx("STATION_ID","STATION ID"), iTc=idx("CHINESE_NAME","CHINESE NAME"), iEn=idx("ENGLISH_NAME","ENGLISH NAME"), iSeq=idx("SEQUENCE");
       extra.mtrRows=rows.map(r=>({line:r[iLine]||r[0],dir:r[iDir]||r[1],code:r[iCode]||r[2],id:r[iId]||r[3],name_tc:r[iTc]||r[4],name_en:r[iEn]||r[5],seq:Number(r[iSeq]||r[6])})).filter(x=>x.line&&x.code&&x.name_tc&&Number.isFinite(x.seq));
       for(const r of extra.mtrRows){
-        if(!extra.mtrStations.has(r.code)) extra.mtrStations.set(r.code,{code:r.code,id:r.id,name_tc:r.name_tc,name_en:r.name_en,lines:new Set()});
+        const c=coordinateMap.get(String(r.code));
+        if(!extra.mtrStations.has(r.code)) extra.mtrStations.set(r.code,{code:r.code,id:r.id,name_tc:r.name_tc,name_en:r.name_en,lat:Number(c?.lat),lon:Number(c?.lon),lines:new Set()});
         extra.mtrStations.get(r.code).lines.add(r.line);
       }
       const byLineDir=new Map();
