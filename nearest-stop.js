@@ -2,6 +2,8 @@
   "use strict";
   const MAX_HIGHLIGHT_DISTANCE = 1500;
   let currentLocation = null;
+  let locatePromise = null;
+  let countdownTimer = null;
 
   function remember(position) {
     const source = position?.coords || position || {};
@@ -26,6 +28,17 @@
     return nearest;
   }
 
+  function locate() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return Promise.resolve(null);
+    if (locatePromise) return locatePromise;
+    locatePromise = new Promise(resolve => navigator.geolocation.getCurrentPosition(
+      position => resolve(remember(position)),
+      () => resolve(null),
+      { enableHighAccuracy:false, maximumAge:30000, timeout:6000 }
+    )).finally(() => { locatePromise = null; });
+    return locatePromise;
+  }
+
   function decorate(stops, coordsFor, root = document.querySelector("#stops")) {
     if (!root) return null;
     const rows = [...root.querySelectorAll(".stop-row")];
@@ -45,5 +58,22 @@
     return nearest;
   }
 
-  window.dzNearestStop = { version:"5.4.2", remember, find, decorate, maxDistance:MAX_HIGHLIGHT_DISTANCE };
+  function refreshEtaCountdown(root = document) {
+    if (typeof etaLabel !== "function") return;
+    root.querySelectorAll("[data-route-eta]").forEach(node => {
+      const eta = node.dataset.routeEta;
+      if (eta) node.textContent = etaLabel(eta);
+    });
+  }
+
+  function startCountdown() {
+    if (countdownTimer !== null || typeof setInterval !== "function") return;
+    countdownTimer = setInterval(() => { if (!document.hidden) refreshEtaCountdown(); }, 10000);
+  }
+
+  startCountdown();
+  window.addEventListener?.("visibilitychange", () => { if (!document.hidden) refreshEtaCountdown(); });
+  window.addEventListener?.("pageshow", refreshEtaCountdown);
+
+  window.dzNearestStop = { version:"5.4.3", remember, locate, find, decorate, refreshEtaCountdown, maxDistance:MAX_HIGHLIGHT_DISTANCE };
 })();
