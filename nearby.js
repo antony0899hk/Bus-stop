@@ -246,6 +246,7 @@
   async function run(position, selected, token) {
     const status=$('#nearbyStatus');
     try {
+      window.dzNearestStop?.remember?.(position);
       const {found:busStops,sources} = await findStops({lat:position.coords.latitude,lon:position.coords.longitude},selected,token);
       if (token !== generation) return;
       const rows=new Map(); let completed=0, failed=0;
@@ -322,5 +323,5 @@
     if(card) { e.stopImmediatePropagation(); const x=state.nearby.find(x=>x.key===card.dataset.nearKey); if(!x)return;if(x.kind==='rail'){openRailway(x);return;}if(x.operator==='MTRB'){openRoute({...x,region:x.mtrBusRegion});return;}const r=normalizedRoutes().find(r=>r.operator===x.operator&&String(r.route)===String(x.route)&&r.bound===x.bound&&String(r.serviceType)===x.serviceType); if(r)openRoute(r);else{$('#routeSearch').value=x.route;state.searchFilter=x.operator;renderSearch();} }
   },true);
   window.addEventListener('pagehide',()=>{cancel();if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null;}});
-  window.dzNearby={version:'5.4.1',search,cancel,findStops,mergeRows,mergeGmbStop,addMtr,groupRoutes,refreshCountdown};
+  window.dzNearby={version:'5.4.2',search,cancel,findStops,mergeRows,mergeGmbStop,addMtr,groupRoutes,refreshCountdown};
 })();

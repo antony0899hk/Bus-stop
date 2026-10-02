@@ -63,6 +63,7 @@
       $('#stops').innerHTML='<div class="loading">正在載入港鐵巴士 ETA…</div>';
       let data=null;try{data=await schedule(meta.route);}catch{}
       $('#stops').innerHTML=(dir.stops||[]).map((s,i)=>`<div class="stop-row" data-stop-id="${escapeHtml(s.id)}"><div class="stop-no">${i+1}</div><div><div class="stop-name">${escapeHtml(s.name_tc||s.id)}</div><div class="etas">${etaChips(minutesForStop(data,s.id))}</div></div></div>`).join('')||'<div class="empty">暫時未有站點資料。</div>';
+      window.dzNearestStop?.decorate?.(dir.stops||[],s=>({lat:s.lat,lon:s.long??s.lon??s.lng}),$('#stops'));
       document.querySelectorAll('[data-mtrb-dir]').forEach(b=>b.addEventListener('click',()=>{active=Number(b.dataset.mtrbDir)||0;paint();}));
     };
     await paint();

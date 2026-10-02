@@ -30,3 +30,8 @@
 .route-timetable .timetable-meta{justify-content:flex-end;gap:3px 6px;margin-top:4px;font-size:8px;line-height:1.25;text-align:right}
 .route-timetable .timetable-meta a{font-size:8px;margin:0}
 @media(max-width:420px){.route-title{gap:8px}.route-heading{flex-basis:38%}.route-service{width:62%;max-width:62%}.route-timetable .timetable-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}.route-timetable .timetable-day{padding:5px 2px}.route-timetable .timetable-day h4{font-size:8px}.route-timetable .timetable-first-last{font-size:8px}.route-timetable .timetable-first-last strong{font-size:10px}}
+
+/* Highlight the single route stop nearest to the last user-approved location. */
+.stop-row.nearest-stop{margin:4px -8px;padding:12px 8px;border:1px solid color-mix(in srgb,var(--text) 55%,var(--border));border-radius:12px;background:color-mix(in srgb,var(--text) 7%,var(--card))}
+.stop-row.nearest-stop .stop-no{background:var(--text);color:var(--bg);font-weight:900}
+.nearest-stop-badge{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:999px;background:var(--text);color:var(--bg);font-size:10px;font-weight:850;line-height:1.3}
