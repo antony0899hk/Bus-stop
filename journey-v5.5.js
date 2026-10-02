@@ -1,8 +1,9 @@
 (() => {
   "use strict";
-  const VERSION="5.5.1",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_SEED_ROUTES=18;
+  const VERSION="5.5.2",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_SEED_ROUTES=18;
   const $=s=>document.querySelector(s),tileCache=new Map();
-  const journeyState=window.journeyState=window.journeyState||{results:[],mode:"fastest",originLocation:null,token:0};
+  const journeyState=window.journeyState=window.journeyState||{results:[],mode:"fastest",originLocation:null,destinationLocation:null,token:0};
+  if(!("destinationLocation" in journeyState))journeyState.destinationLocation=null;
   let groundCell=0.005;
 
   async function json(url,ttl=300000){
@@ -83,18 +84,19 @@
   }
   async function locate(){const p=await window.dzNearestStop?.locate?.();if(p)return p;throw Error("未能取得目前位置");}
   async function runJourneySearch(){
-    const token=++journeyState.token,button=$("#journeySearchBtn"),status=$("#journeyStatus"),box=$("#journeyResults"),query=$("#journeyTo")?.value.trim()||"";if(!query){status.textContent="請先輸入目的地名稱、街名或大廈名。";return;}
+    const token=++journeyState.token,button=$("#journeySearchBtn"),status=$("#journeyStatus"),box=$("#journeyResults"),query=$("#journeyTo")?.value.trim()||"";if(!query&&!journeyState.destinationLocation){status.textContent="請輸入目的地，或者用地圖揀位。";return;}
     button.disabled=true;box.innerHTML='<div class="loading">正在取得起點及目的地座標…</div>';
-    try{const[origin,destination]=await Promise.all([journeyState.originLocation?Promise.resolve(journeyState.originLocation):locate(),geocodeDestination(query)]);journeyState.originLocation=origin;$("#journeyFrom").value="我的位置";if(token!==journeyState.token)return;
+    try{const[origin,destination]=await Promise.all([journeyState.originLocation?Promise.resolve(journeyState.originLocation):locate(),journeyState.destinationLocation?Promise.resolve(journeyState.destinationLocation):geocodeDestination(query)]);journeyState.originLocation=origin;$("#journeyFrom").value="我的位置";if(token!==journeyState.token)return;
       status.textContent=`目的地已定位：${destination.name||query}`;const seeds=await originSeeds(origin,token,status);if(!seeds.length)throw Error("起點 400m 內暫時未有可用即時路線");
       const prepared=await pool(seeds,4,prepareSeed);if(token!==journeyState.token)return;const direct=await destinationCandidates(prepared,destination,token,status);if(token!==journeyState.token)return;
-      const mtr=await Promise.resolve(window.dzExtraTransit?.mtrJourneyCandidate?.("我的位置",query,origin,destination)).catch(()=>null);journeyState.results=[...direct,...(mtr?[mtr]:[])];renderJourneyResults();
+      const destinationLabel=destination.name||query||"地圖選擇位置",mtr=await Promise.resolve(window.dzExtraTransit?.mtrJourneyCandidate?.("我的位置",destinationLabel,origin,destination)).catch(()=>null);journeyState.results=[...direct,...(mtr?[mtr]:[])];renderJourneyResults();
       status.textContent=journeyState.results.length?`由 ${destination.name||query} 中心逐級搜尋完成；只載入命中範圍 tiles／路線。`:"由目的地 50m 擴至 1000m，暫時未有直達方案。";
     }catch(e){if(token!==journeyState.token)return;journeyState.results=[];renderJourneyResults();status.textContent=`搜尋未完成：${e?.message||"請稍後再試"}。`;}finally{if(token===journeyState.token)button.disabled=false;}
   }
   function install(){
-    const from=$("#journeyFrom"),swap=$("#journeySwapBtn"),status=$("#journeyStatus");if(from){from.value="我的位置";from.readOnly=true;from.setAttribute("aria-readonly","true");}if(swap)swap.closest(".journey-swap")?.classList.add("hidden");
-    if(status)status.textContent="第一階段：我的位置 → 目的地名稱／街名；50m 一級逐步擴大搜尋。";
+    const from=$("#journeyFrom"),to=$("#journeyTo"),swap=$("#journeySwapBtn"),status=$("#journeyStatus");if(from){from.value="我的位置";from.readOnly=true;from.setAttribute("aria-readonly","true");}if(swap)swap.closest(".journey-swap")?.classList.add("hidden");
+    if(to&&!$("#journeyMapPick")){const row=document.createElement("div"),pick=document.createElement("button");row.className="journey-destination-row";to.parentNode.insertBefore(row,to);row.appendChild(to);pick.id="journeyMapPick";pick.type="button";pick.textContent="地圖揀位";row.appendChild(pick);pick.addEventListener("click",async()=>{status.textContent="正在開啟地圖…";try{const origin=journeyState.originLocation||(journeyState.originLocation=await locate()),selected=await window.dzMap?.pickDestination?.({initial:origin});if(!selected){status.textContent="已取消地圖揀位。";return;}journeyState.destinationLocation=selected;to.value="地圖選擇位置";status.textContent=`已喺地圖揀位（${selected.lat.toFixed(5)}, ${selected.lon.toFixed(5)}），可搜尋路線。`;}catch(e){status.textContent=`未能開啟地圖：${e?.message||"請稍後再試"}。`;}});to.addEventListener("input",()=>{if(to.value!=="地圖選擇位置")journeyState.destinationLocation=null;});}
+    if(status)status.textContent="第一階段：我的位置 → 輸入目的地或地圖揀位；50m 一級逐步擴大搜尋。";
     $("#journeySearchBtn")?.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();runJourneySearch();});$("#journeyUseLocation")?.addEventListener("click",async()=>{status.textContent="正在取得目前位置…";try{journeyState.originLocation=await locate();status.textContent="已取得位置，請輸入目的地。";}catch{status.textContent="未能取得位置，請檢查定位權限。";}});
     document.querySelectorAll("[data-journey-mode]").forEach(b=>b.addEventListener("click",()=>{journeyState.mode=b.dataset.journeyMode;document.querySelectorAll("[data-journey-mode]").forEach(x=>x.classList.toggle("active",x===b));renderJourneyResults();}));
     $("#journeyResults")?.addEventListener("click",e=>{const card=e.target.closest("[data-journey-result]");if(!card)return;const r=resultList()[Number(card.dataset.journeyResult)];if(!r||r.kind==="mtr")return;const route=normalizedRoutes().find(x=>x.operator===r.operator&&String(x.route)===r.route&&String(x.bound).toUpperCase()===r.bound&&String(x.serviceType||"1")===r.serviceType);if(route)openRoute(route);});

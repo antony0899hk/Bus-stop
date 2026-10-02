@@ -11,5 +11,11 @@ const prepared={seed:{operator:'KMB'},originIndex:0,sequence:[{id:'A'},{id:'B'},
 const hit=api.destinationHitByIds(prepared,[{operator:'KMB',id:'B',distance:80},{operator:'KMB',id:'C',distance:30}]);
 assert.equal(hit.stop.id,'C');assert.equal(hit.index,2);
 assert(api.score({journeyMinutes:10,walkMeters:100,transferCount:0})<api.score({journeyMinutes:20,walkMeters:0,transferCount:0}));
-assert(!fs.readFileSync(path.join(__dirname,'../journey-v5.5.js'),'utf8').includes('ensureStopCatalog'));
-console.log('Passed: point-to-point uses address coordinates and spatial tiles without loading the full HK stop catalog.');
+const journeySource=fs.readFileSync(path.join(__dirname,'../journey-v5.5.js'),'utf8');
+const mapSource=fs.readFileSync(path.join(__dirname,'../nearby-map.js'),'utf8');
+assert(!journeySource.includes('ensureStopCatalog'));
+assert(journeySource.includes('destinationLocation'));
+assert(journeySource.includes('pickDestination'));
+assert(mapSource.includes("window.dzMap={ensureLeaflet,pickDestination}"));
+assert(!mapSource.includes('runtime/ground'));
+console.log('Passed: point-to-point accepts address or map coordinates and spatial tiles without loading the full HK stop catalog.');

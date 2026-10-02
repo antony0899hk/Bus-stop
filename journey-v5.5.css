@@ -16,3 +16,20 @@
 .journey-planner #journeyQuickPlaces,
 .journey-planner #journeyRecentPlaces { display: none; }
 .journey-planner #journeyFrom[readonly] { opacity: .78; }
+.journey-destination-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
+.journey-destination-row button { border: 0; border-radius: 13px; padding: 0 13px; background: var(--text); color: var(--bg); font-weight: 850; white-space: nowrap; }
+.dz-map-picker { position: fixed; inset: 0; z-index: 10000; display: grid; align-items: end; background: rgba(0,0,0,.58); padding-top: env(safe-area-inset-top); }
+.dz-map-picker.hidden { display: none; }
+.dz-map-picker-sheet { width: min(100%,720px); margin: 0 auto; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: var(--card); color: var(--text); box-shadow: 0 -18px 55px rgba(0,0,0,.28); }
+.dz-map-picker-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 12px; }
+.dz-map-picker-head strong,.dz-map-picker-head small { display: block; }
+.dz-map-picker-head small,#dzMapPickerStatus { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.dz-map-picker-head button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 24px; }
+#dzMapPickerCanvas { width: 100%; height: min(54vh,460px); border-radius: 16px; overflow: hidden; background: var(--bg); }
+#dzMapPickerStatus { min-height: 20px; }
+.dz-map-picker-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 9px; margin-top: 10px; }
+.dz-map-picker-actions button { min-height: 46px; border-radius: 13px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 850; }
+.dz-map-picker-actions [data-map-confirm] { border: 0; background: var(--text); color: var(--bg); }
+.dz-map-picker-actions [data-map-confirm]:disabled { opacity: .42; }
+body.dz-map-picker-open { overflow: hidden; }
+@media(max-width:360px){.journey-destination-row{grid-template-columns:1fr}.journey-destination-row button{min-height:44px}}
