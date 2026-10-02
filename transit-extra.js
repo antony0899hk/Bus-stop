@@ -228,10 +228,10 @@
     return Math.max(1,Math.round(ride + transfers*MTR_TRANSFER_MINUTES + MTR_WAIT_MINUTES + walk));
   }
 
-  async function mtrJourneyCandidate(fromValue,toValue,originLocation){
+  async function mtrJourneyCandidate(fromValue,toValue,originLocation,destinationLocation=null){
     await ensureMtrData();
     await ensureMtrFares().catch(()=>{});
-    const origins=mtrMatch(fromValue,originLocation), dests=mtrMatch(toValue,null);
+    const origins=mtrMatch(fromValue,originLocation), dests=mtrMatch(toValue,destinationLocation);
     if(!origins.length||!dests.length)return null;
     const path=shortestMtrPath(origins.map(x=>x.code),dests.map(x=>x.code));
     if(!path)return null;
@@ -239,7 +239,7 @@
     const uniqueLines=[];
     path.lines.forEach(l=>{if(uniqueLines[uniqueLines.length-1]!==l)uniqueLines.push(l);});
     const fare=extra.mtrFares.get(`${o.id}|${d.id}`) ?? extra.mtrFares.get(`${d.id}|${o.id}`) ?? null;
-    const walkMeters=origins.find(x=>x.code===o.code)?.distance||0;
+    const walkMeters=(origins.find(x=>x.code===o.code)?.distance||0)+(dests.find(x=>x.code===d.code)?.distance||0);
     const journeyMinutes=mtrFixedJourneyMinutes(path,walkMeters);
     return {
       kind:"mtr", operator:"MTR", route:uniqueLines.join(" → "),
@@ -249,6 +249,7 @@
       mtrPath:path.path, mtrLines:uniqueLines
     };
   }
+  extra.mtrJourneyCandidate=mtrJourneyCandidate;
 
   function nlbBadge(){return '<span class="badge nlb">嶼巴</span>';}
 
@@ -321,76 +322,6 @@
   };
 
   // Safe Mode: do not expand the full NLB catalogue automatically on nearby click.
-
-  const oldRunJourney=runJourneySearch;
-  runJourneySearch=async function(){
-    const originValue=document.querySelector('#journeyFrom').value;
-    const destinationValue=document.querySelector('#journeyTo').value;
-    await Promise.allSettled([ensureNlbCatalog(),ensureMtrData()]);
-    await oldRunJourney();
-
-    const norm=v=>String(v||'').trim().toLowerCase().replace(/[\s　]+/g,'');
-    const qO=norm(originValue), qD=norm(destinationValue);
-    const loc=journeyState.originLocation;
-    const nlbCandidates=[];
-    for(const r of extra.nlbRoutes){
-      const stops=extra.nlbRouteStops.get(String(r.routeId))||[];
-      let origins=[],dests=[];
-      if(loc) origins=stops.map((s,i)=>({s,i,d:distanceMeters(loc.lat,loc.lon,s.lat,s.long)})).filter(x=>Number.isFinite(x.d)&&x.d<=JOURNEY_RADIUS);
-      else origins=stops.map((s,i)=>({s,i,d:0})).filter(x=>norm(x.s.name_tc).includes(qO));
-      dests=stops.map((s,i)=>({s,i,d:0})).filter(x=>norm(x.s.name_tc).includes(qD));
-      for(const o of origins){
-        const d=dests.find(x=>x.i>o.i);
-        if(!d)continue;
-        let eta=null;
-        try{
-          const j=await getJSON(`${NLB_API}/stop.php?action=estimatedArrivals&routeId=${encodeURIComponent(r.routeId)}&stopId=${encodeURIComponent(o.s.stop)}&language=zh`,{ttl:20000,retries:0});
-          const e=(j.estimatedArrivals||[])[0];
-          if(e)eta=String(e.estimatedArrivalTime||'').replace(' ','T')+'+08:00';
-        }catch{}
-        nlbCandidates.push({
-          kind:'direct',transferCount:0,operator:'NLB',route:r.route,bound:'',serviceType:'1',routeId:r.routeId,
-          originStop:{id:o.s.stop,name:o.s.name_tc},destinationStop:{id:d.s.stop,name:d.s.name_tc},
-          originPos:o.i,destinationPos:d.i,stopCount:d.i-o.i,walkMeters:o.d+d.d,
-          meta:{orig:r.orig,dest:r.dest},eta,fare:Number(o.s.fare)
-        });
-        break;
-      }
-    }
-
-    const mtr=await mtrJourneyCandidate(originValue,destinationValue,loc).catch(()=>null);
-    if(nlbCandidates.length) journeyState.results.push(...nlbCandidates.slice(0,12));
-    if(mtr) journeyState.results.push(mtr);
-    renderJourneyResults();
-    const st=document.querySelector('#journeyStatus');
-    if(st)st.textContent=st.textContent.replace('九巴／龍運、城巴及綠色專線小巴','九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵');
-  };
-
-  const oldRenderJourney=renderJourneyResults;
-  function appendMtrCards(items){
-    const box=document.querySelector('#journeyResults');
-    if(!box)return;
-    for(const mtr of items){
-      const names=mtr.mtrPath.map(c=>extra.mtrStations.get(c)?.name_tc||c);
-      box.insertAdjacentHTML('beforeend',`<article class="journey-card journey-mtr-card"><div class="journey-rank">🚇</div><div class="journey-main"><div class="journey-top"><div><span class="badge mtr">MTR</span> <strong>${escapeHtml(mtr.route||'港鐵')}</strong></div><div class="journey-eta">約 ${Number(mtr.journeyMinutes)||0} 分鐘</div></div><div class="journey-title">${escapeHtml(names[0])} → ${escapeHtml(names[names.length-1])}</div><div class="journey-meta">${mtr.transferCount?`轉 ${mtr.transferCount} 次 · `:''}${mtr.stopCount} 站${mtr.fare!=null?` · $${Number(mtr.fare).toFixed(1)}`:''}</div><div class="journey-note">${escapeHtml(names.join(' → '))}</div></div></article>`);
-    }
-  }
-
-  renderJourneyResults=function(){
-    const only=journeyState.results.filter(r=>r.kind!=='mtr');
-    const mtr=journeyState.results.filter(r=>r.kind==='mtr');
-    const original=journeyState.results;
-    journeyState.results=only;
-    oldRenderJourney();
-    journeyState.results=original;
-    appendMtrCards(mtr);
-  };
-
-  document.querySelector('#journeySearchBtn')?.addEventListener('click',e=>{
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    runJourneySearch();
-  },true);
 
   async function init(){
     installNlbUi();
