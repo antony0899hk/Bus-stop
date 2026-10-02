@@ -40,7 +40,7 @@
     const s=(scheduleData?.busStop||[]).find(x=>String(x.busStopId)===String(stopId));if(!s)return [];
     return (s.bus||[]).map(b=>{const a=Number(b.arrivalTimeInSecond),d=Number(b.departureTimeInSecond),sec=Number.isFinite(d)&&d>=0?d:a;return Number.isFinite(sec)&&sec>=0&&sec<108000?Math.max(0,Math.round(sec/60)):null;}).filter(x=>x!==null).slice(0,3);
   }
-  function etaChips(minutes){return minutes.length?minutes.map(m=>`<span class="eta-chip">${m===0?'即將到站':`${m} 分鐘`}</span>`).join(""):'<span class="eta-chip">未有預報</span>';}
+  function etaChips(minutes){const now=Date.now();return minutes.length?minutes.map(m=>{const eta=new Date(now+m*60000).toISOString();return `<span class="eta-chip"><span data-route-eta="${eta}">${m===0?'即將到站':`${m} 分鐘`}</span></span>`;}).join(""):'<span class="eta-chip">未有預報</span>';}
   function routeMeta(route,bundle){
     const r=(bundle?.routes||[]).find(x=>String(x.route).toUpperCase()===String(route).toUpperCase());
     if(!r)return null;return {...r,operator:"MTRB",routeId:r.route,serviceType:"1",bound:""};
@@ -63,7 +63,9 @@
       $('#stops').innerHTML='<div class="loading">正在載入港鐵巴士 ETA…</div>';
       let data=null;try{data=await schedule(meta.route);}catch{}
       $('#stops').innerHTML=(dir.stops||[]).map((s,i)=>`<div class="stop-row" data-stop-id="${escapeHtml(s.id)}"><div class="stop-no">${i+1}</div><div><div class="stop-name">${escapeHtml(s.name_tc||s.id)}</div><div class="etas">${etaChips(minutesForStop(data,s.id))}</div></div></div>`).join('')||'<div class="empty">暫時未有站點資料。</div>';
-      window.dzNearestStop?.decorate?.(dir.stops||[],s=>({lat:s.lat,lon:s.long??s.lon??s.lng}),$('#stops'));
+      const root=$('#stops'),context=['MTRB',meta.route,active].join('|');root.dataset.nearestContext=context;
+      const decorateNearest=()=>window.dzNearestStop?.decorate?.(dir.stops||[],s=>({lat:s.lat,lon:s.long??s.lon??s.lng}),root);
+      decorateNearest();window.dzNearestStop?.locate?.().then(()=>{if(root.dataset.nearestContext===context)decorateNearest();});
       document.querySelectorAll('[data-mtrb-dir]').forEach(b=>b.addEventListener('click',()=>{active=Number(b.dataset.mtrbDir)||0;paint();}));
     };
     await paint();

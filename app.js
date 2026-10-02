@@ -230,16 +230,20 @@ function renderStopRows(stops, r, op) {
     const fav = state.favorites.some(f => f.key === key);
     return `<div class="stop-row" data-stop-id="${escapeHtml(id)}"><div class="stop-no">${i+1}</div><div><div class="stop-name">${escapeHtml(s?.name_tc || rs.name_tc || id)}</div><div class="etas"><span class="eta-chip">載入 ETA…</span></div></div><div class="stop-actions"><div class="fare-cell" data-fare-stop="${escapeHtml(id)}" data-fare-seq="${stopSeq}">車費 —</div><button class="fav-btn ${fav ? "active" : ""}" data-fav-stop="${escapeHtml(id)}" data-fav-seq="${stopSeq}" aria-label="收藏">${fav ? "★" : "☆"}</button></div></div>`;
   }).join("");
-  window.dzNearestStop?.decorate?.(stops, rs => {
+  const root=$("#stops"), context=[op,r.route,r.bound,r.serviceType].join("|");
+  root.dataset.nearestContext=context;
+  const decorateNearest=()=>window.dzNearestStop?.decorate?.(stops, rs => {
     const id=String(rs.stop || rs.stop_id), s=stopMap.get(id) || rs;
     return { lat:s.lat, lon:s.long ?? s.lng ?? s.lon ?? s.longitude };
-  }, $("#stops"));
+  }, root);
+  decorateNearest();
+  window.dzNearestStop?.locate?.().then(()=>{if(root.dataset.nearestContext===context)decorateNearest();});
   $$("[data-fav-stop]").forEach(b => b.addEventListener("click", () => toggleFavorite(r, b.dataset.favStop, Number(b.dataset.favSeq))));
   if (typeof fillRouteFares === "function") fillRouteFares(r, stops).catch(() => {});
 }
 function fillEta(stopId, rows) {
   const row = $(`.stop-row[data-stop-id="${CSS.escape(String(stopId))}"]`); if (!row) return;
-  row.querySelector(".etas").innerHTML = rows.length ? rows.map(e => `<span class="eta-chip ${validFutureEta(e.eta) ? "live" : ""}">${escapeHtml(etaLabel(e.eta))}${e.rmk_tc ? `<small>${escapeHtml(e.rmk_tc)}</small>` : ""}</span>`).join("") : '<span class="eta-chip">未有預報</span>';
+  row.querySelector(".etas").innerHTML = rows.length ? rows.map(e => `<span class="eta-chip ${validFutureEta(e.eta) ? "live" : ""}"><span data-route-eta="${escapeHtml(e.eta||"")}">${escapeHtml(etaLabel(e.eta))}</span>${e.rmk_tc ? `<small>${escapeHtml(e.rmk_tc)}</small>` : ""}</span>`).join("") : '<span class="eta-chip">未有預報</span>';
 }
 function favKey(op, route, bound, serviceType, stopId, routeId="", stopSeq="") { return [op,route,bound,serviceType,stopId,routeId,stopSeq].join("|"); }
 function toggleFavorite(r, stopId, stopSeq) {

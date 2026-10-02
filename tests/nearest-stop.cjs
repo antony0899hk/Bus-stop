@@ -1,5 +1,6 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-const ctx={console,Date,Number,Math,distanceMeters(aLat,aLon,bLat,bLon){const dy=(bLat-aLat)*111000,dx=(bLon-aLon)*102000;return Math.hypot(dx,dy);},document:{querySelector(){return null}},window:{}};
+let countdownTick=null,liveNode={dataset:{routeEta:new Date(Date.now()+61000).toISOString()},textContent:''};
+const ctx={console,Date,Number,Math,setInterval(fn){countdownTick=fn;return 1},etaLabel(iso){return `${Math.max(0,Math.round((new Date(iso)-new Date())/60000))} 分鐘`;},distanceMeters(aLat,aLon,bLat,bLon){const dy=(bLat-aLat)*111000,dx=(bLon-aLon)*102000;return Math.hypot(dx,dy);},document:{hidden:false,querySelector(){return null},querySelectorAll(s){return s==='[data-route-eta]'?[liveNode]:[]}},navigator:{},window:{addEventListener(){}}};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../nearest-stop.js'),'utf8'),ctx);
 const api=ctx.window.dzNearestStop;
 assert.equal(api.find([{lat:22.3,lon:114.1}],s=>s),null);
@@ -8,4 +9,6 @@ const result=api.find([{lat:22.31,lon:114.11},{lat:22.3002,lon:114.1002},{lat:22
 assert.equal(result.index,1);assert(result.distance<30);
 assert.equal(api.remember({coords:{latitude:'bad',longitude:114}}),null);
 assert.equal(api.maxDistance,1500);
+api.refreshEtaCountdown();assert.match(liveNode.textContent,/1 分鐘/);
+liveNode.dataset.routeEta=new Date(Date.now()+1000).toISOString();countdownTick();assert.match(liveNode.textContent,/0 分鐘/);
 console.log('Passed: current location selects exactly the nearest route stop with a safe display distance.');
