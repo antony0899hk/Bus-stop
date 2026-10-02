@@ -1,0 +1,15 @@
+.journey-card-button {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.journey-card-button:active { opacity: .72; }
+.journey-card-button .journey-main { width: 100%; }
+.journey-mtr-card { border-color: rgba(25, 103, 177, .35); }
