@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const ctx={console,Date,Number,Math,distanceMeters(aLat,aLon,bLat,bLon){const dy=(bLat-aLat)*111000,dx=(bLon-aLon)*102000;return Math.hypot(dx,dy);},document:{querySelector(){return null}},window:{}};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../nearest-stop.js'),'utf8'),ctx);
+const api=ctx.window.dzNearestStop;
+assert.equal(api.find([{lat:22.3,lon:114.1}],s=>s),null);
+api.remember({coords:{latitude:22.3001,longitude:114.1001,accuracy:20}});
+const result=api.find([{lat:22.31,lon:114.11},{lat:22.3002,lon:114.1002},{lat:22.305,lon:114.105}],s=>s);
+assert.equal(result.index,1);assert(result.distance<30);
+assert.equal(api.remember({coords:{latitude:'bad',longitude:114}}),null);
+assert.equal(api.maxDistance,1500);
+console.log('Passed: current location selects exactly the nearest route stop with a safe display distance.');
