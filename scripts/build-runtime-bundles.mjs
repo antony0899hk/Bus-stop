@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 
 const BUILD_DIR = "runtime";
 const GMB_CELL = 0.01;
+const GROUND_CELL = 0.005;
 const MTR_ROUTES_URL = "https://opendata.mtr.com.hk/data/mtr_bus_routes.csv";
 const MTR_STOPS_URL = "https://opendata.mtr.com.hk/data/mtr_bus_stops.csv";
 const MTR_FARES_URL = "https://opendata.mtr.com.hk/data/mtr_bus_fares.csv";
@@ -101,4 +102,23 @@ async function buildGmbTiles(){
   console.log(`Built ${tiles.size} GMB spatial tiles from ${all.length} stops.`);
 }
 
-await Promise.all([buildGmbTiles(),buildMtrBus()]);
+async function buildGroundTiles(){
+  await mkdir(`${BUILD_DIR}/ground`,{recursive:true});
+  const tiles=new Map();
+  for(const [operator,path] of [["KMB","kmb-stops.json"],["CTB","ctb-stops.json"]]){
+    const json=JSON.parse(await readFile(path,"utf8"));
+    for(const row of json.data||[]){
+      const lat=Number(row.lat??row.latitude),lon=Number(row.long??row.lng??row.longitude);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
+      const y=Math.floor(lat/GROUND_CELL),x=Math.floor(lon/GROUND_CELL),key=`${y}-${x}`;
+      if(!tiles.has(key))tiles.set(key,[]);
+      tiles.get(key).push({operator,id:String(row.stop||row.id),name:row.name_tc||"",lat,lon});
+    }
+  }
+  await Promise.all([...tiles].map(([key,data])=>writeFile(`${BUILD_DIR}/ground/tile-${key}.json`,JSON.stringify({cell:GROUND_CELL,data}))));
+  await writeFile(`${BUILD_DIR}/ground/config.json`,JSON.stringify({generated:new Date().toISOString(),cell:GROUND_CELL,tileCount:tiles.size}));
+  console.log(`Built ${tiles.size} KMB/CTB ground-stop spatial tiles.`);
+}
+
+if(process.argv.includes("--ground-only"))await buildGroundTiles();
+else await Promise.all([buildGmbTiles(),buildMtrBus(),buildGroundTiles()]);
