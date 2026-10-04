@@ -33,3 +33,5 @@
 .dz-map-picker-actions [data-map-confirm]:disabled { opacity: .42; }
 body.dz-map-picker-open { overflow: hidden; }
 @media(max-width:360px){.journey-destination-row{grid-template-columns:1fr}.journey-destination-row button{min-height:44px}}
+
+.journey-share-row{display:flex;align-items:center;gap:10px;margin-top:9px}.journey-share-row button{border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text);padding:9px 12px;font-weight:800}.journey-share-row .small-muted{font-size:11px}@media(max-width:390px){.journey-share-row{justify-content:space-between}}
