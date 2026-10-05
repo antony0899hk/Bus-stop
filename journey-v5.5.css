@@ -13,6 +13,9 @@
 .journey-card-button:active { opacity: .72; }
 .journey-card-button .journey-main { width: 100%; }
 .journey-mtr-card { border-color: rgba(25, 103, 177, .35); }
+.journey-transfer-card { border-color: rgba(245, 183, 0, .28); }
+.journey-transfer-card .journey-top > div:first-child { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.journey-transfer-card .journey-arrow { color: var(--muted); font-weight: 900; }
 .journey-planner #journeyQuickPlaces,
 .journey-planner #journeyRecentPlaces { display: none; }
 .journey-planner #journeyFrom[readonly] { opacity: .78; }

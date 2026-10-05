@@ -14,7 +14,7 @@
 
 ## Runtime data policy
 
-- KMB / CTB：現有基礎資料逐步改為 local / indexed access；新功能不得新增全港掃描。
+- KMB / CTB：每個 ground spatial tile 附帶該區車站的輕量 route references；瀏覽器只下載命中位置 tiles，再按需要讀取 route-stop sequence 及 ETA，不作全港掃描。
 - GMB：Spatial tiles；Nearby 只下載目前位置相鄰 tiles，route metadata 只在搜尋或點對點需要時載入 lightweight index。
 - MTR Bus：三個獨立 bundle：`tai-po`、`yuen-long-tin-shui-wai`、`tuen-mun`。Nearby 只開所在服務區 bundle。
 - NLB：按 route / location on-demand；不得自動展開全 catalogue stops。

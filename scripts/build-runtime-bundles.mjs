@@ -6,6 +6,11 @@ const GROUND_CELL = 0.005;
 const MTR_ROUTES_URL = "https://opendata.mtr.com.hk/data/mtr_bus_routes.csv";
 const MTR_STOPS_URL = "https://opendata.mtr.com.hk/data/mtr_bus_stops.csv";
 const MTR_FARES_URL = "https://opendata.mtr.com.hk/data/mtr_bus_fares.csv";
+const KMB_ROUTE_STOPS_URL = "https://data.etabus.gov.hk/v1/transport/kmb/route-stop";
+const CTB_ROUTE_GRAPH_URLS = [
+  "https://data.hkbus.app/routeFareList.min.json",
+  "https://hkbus.github.io/hk-bus-crawling/routeFareList.min.json"
+];
 
 const MTR_REGIONS = {
   "tai-po": new Set(["K12","K14","K17","K18"]),
@@ -31,6 +36,42 @@ async function fetchText(url){
   const r=await fetch(url,{headers:{Accept:"text/csv,*/*"}});
   if(!r.ok)throw new Error(`${r.status} ${url}`);
   return await r.text();
+}
+
+async function fetchJson(url){
+  const r=await fetch(url,{headers:{Accept:"application/json"}});
+  if(!r.ok)throw new Error(`${r.status} ${url}`);
+  return await r.json();
+}
+
+function addRouteRef(refs,operator,stop,route,bound,serviceType="1",seq=null,total=null){
+  if(!stop||!route||!bound)return;
+  const key=`${operator}|${stop}`,item={route:String(route),bound:String(bound).toUpperCase(),serviceType:String(serviceType||"1"),seq:Number(seq)||null,total:Number(total)||null};
+  if(!refs.has(key))refs.set(key,new Map());refs.get(key).set([item.route,item.bound,item.serviceType].join("|"),item);
+}
+
+async function buildGroundRouteRefs(){
+  const refs=new Map(),failures=[];
+  try{
+    const j=await fetchJson(KMB_ROUTE_STOPS_URL);
+    const groups=new Map();for(const row of j.data||[]){const key=[row.route,row.bound,row.service_type||"1"].join("|");if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);}
+    for(const rows of groups.values()){rows.sort((a,b)=>Number(a.seq)-Number(b.seq));for(const row of rows)addRouteRef(refs,"KMB",String(row.stop||""),row.route,row.bound,row.service_type,row.seq,rows.length);}
+  }catch(error){failures.push(`KMB: ${error.message}`);}
+  let ctbLoaded=false,lastCtbError=null;
+  for(const url of CTB_ROUTE_GRAPH_URLS){
+    try{
+      const db=await fetchJson(url);
+      for(const entry of Object.values(db?.routeList||{})){
+        const companies=Array.isArray(entry?.co)?entry.co.map(x=>String(x).toLowerCase()):[];if(!companies.includes("ctb"))continue;
+        const route=String(entry?.route||""),bound=String(entry?.bound?.ctb||"").toUpperCase(),stops=entry?.stops?.ctb;if(!route||!["O","I"].includes(bound)||!Array.isArray(stops))continue;
+        stops.forEach((stop,index)=>addRouteRef(refs,"CTB",String(stop||""),route,bound,entry?.serviceType||"1",index+1,stops.length));
+      }
+      ctbLoaded=true;break;
+    }catch(error){lastCtbError=error;}
+  }
+  if(!ctbLoaded)failures.push(`CTB: ${lastCtbError?.message||"route graph unavailable"}`);
+  if(failures.length)console.warn(`Ground route references incomplete (${failures.join("; ")}).`);
+  return refs;
 }
 
 function mtrRegion(route){
@@ -104,7 +145,7 @@ async function buildGmbTiles(){
 
 async function buildGroundTiles(){
   await mkdir(`${BUILD_DIR}/ground`,{recursive:true});
-  const tiles=new Map();
+  const tiles=new Map(),routeRefs=await buildGroundRouteRefs();
   for(const [operator,path] of [["KMB","kmb-stops.json"],["CTB","ctb-stops.json"]]){
     const json=JSON.parse(await readFile(path,"utf8"));
     for(const row of json.data||[]){
@@ -112,12 +153,13 @@ async function buildGroundTiles(){
       if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
       const y=Math.floor(lat/GROUND_CELL),x=Math.floor(lon/GROUND_CELL),key=`${y}-${x}`;
       if(!tiles.has(key))tiles.set(key,[]);
-      tiles.get(key).push({operator,id:String(row.stop||row.id),name:row.name_tc||"",lat,lon});
+      const id=String(row.stop||row.id),routes=[...(routeRefs.get(`${operator}|${id}`)?.values()||[])];
+      tiles.get(key).push({operator,id,name:row.name_tc||"",lat,lon,routes});
     }
   }
   await Promise.all([...tiles].map(([key,data])=>writeFile(`${BUILD_DIR}/ground/tile-${key}.json`,JSON.stringify({cell:GROUND_CELL,data}))));
-  await writeFile(`${BUILD_DIR}/ground/config.json`,JSON.stringify({generated:new Date().toISOString(),cell:GROUND_CELL,tileCount:tiles.size}));
-  console.log(`Built ${tiles.size} KMB/CTB ground-stop spatial tiles.`);
+  await writeFile(`${BUILD_DIR}/ground/config.json`,JSON.stringify({generated:new Date().toISOString(),cell:GROUND_CELL,tileCount:tiles.size,routeRefStops:routeRefs.size}));
+  console.log(`Built ${tiles.size} KMB/CTB ground-stop spatial tiles with ${routeRefs.size} stop route-reference sets.`);
 }
 
 if(process.argv.includes("--ground-only"))await buildGroundTiles();
