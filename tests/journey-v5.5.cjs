@@ -18,4 +18,6 @@ assert(journeySource.includes('destinationLocation'));
 assert(journeySource.includes('pickDestination'));
 assert(mapSource.includes("window.dzMap={ensureLeaflet,pickDestination}"));
 assert(!mapSource.includes('runtime/ground'));
+assert(journeySource.includes('✓ 已定位'));
+assert(!journeySource.includes('q?\\`'));
 console.log('Passed: point-to-point accepts address or map coordinates and spatial tiles without loading the full HK stop catalog.');

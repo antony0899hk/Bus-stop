@@ -331,14 +331,9 @@
   // Safe Mode: do not expand the full NLB catalogue automatically on nearby click.
 
   async function init(){
-    installNlbUi();
-    const status=document.querySelector('#status');
-    try{
-      await ensureNlbRoutes();
-      if(status&&status.textContent.includes('已載入')) status.textContent=status.textContent.replace('九巴＋城巴＋小巴','九巴＋城巴＋小巴＋嶼巴');
-    }catch{}
+    document.querySelectorAll('[data-near-filter="NLB"],[data-search-filter="NLB"],.operator-legend .badge.nlb').forEach(el=>el.remove());
     const js=document.querySelector('#journeyStatus');
-    if(js)js.textContent='支援九巴／龍運、城巴、綠色專線小巴、嶼巴及港鐵；港鐵使用固定行車時間，不追下一班車 ETA。';
+    if(js)js.textContent='支援九巴／龍運、城巴、港鐵巴士及港鐵；港鐵使用固定行車時間，不追下一班車 ETA。';
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});

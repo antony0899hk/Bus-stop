@@ -16,6 +16,7 @@
 .journey-planner #journeyQuickPlaces,
 .journey-planner #journeyRecentPlaces { display: none; }
 .journey-planner #journeyFrom[readonly] { opacity: .78; }
+.journey-planner .journey-swap { display: none !important; }
 .journey-destination-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
 .journey-destination-row button { border: 0; border-radius: 13px; padding: 0 13px; background: var(--text); color: var(--bg); font-weight: 850; white-space: nowrap; }
 .dz-map-picker { position: fixed; inset: 0; z-index: 10000; display: grid; align-items: end; background: rgba(0,0,0,.58); padding-top: env(safe-area-inset-top); }

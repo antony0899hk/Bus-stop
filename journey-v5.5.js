@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION="5.5.3",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_SEED_ROUTES=18;
+  const VERSION="5.5.4",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_SEED_ROUTES=18;
   const $=s=>document.querySelector(s),tileCache=new Map();
   const journeyState=window.journeyState=window.journeyState||{results:[],mode:"fastest",originLocation:null,destinationLocation:null,token:0};
   if(!("destinationLocation" in journeyState))journeyState.destinationLocation=null;
@@ -99,21 +99,21 @@
     const name=prompt("對方名稱（選填）","")||"";
     const u=new URL(location.href);u.searchParams.set("dzshare","1");if(q)u.searchParams.set("to",q);if(name.trim())u.searchParams.set("name",name.trim());
     const d=journeyState.destinationLocation;if(d){u.searchParams.set("lat",Number(d.lat).toFixed(6));u.searchParams.set("lon",Number(d.lon).toFixed(6));u.searchParams.set("label",d.name||q||"分享目的地");}
-    const data={title:"到站 · 分享目的地",text:q?\`一齊去：\${q}\`:"一齊去呢個目的地",url:u.toString()};
+    const data={title:"到站 · 分享目的地",text:q?`一齊去：${q}`:"一齊去呢個目的地",url:u.toString()};
     if(navigator.share){navigator.share(data).then(()=>status.textContent="已開啟分享，可選 WhatsApp、Signal 或其他 Apps。").catch(e=>{if(e?.name!=="AbortError")status.textContent="未能分享，請再試。";});return;}
     navigator.clipboard?.writeText(u.toString()).then(()=>status.textContent="分享連結已複製，可貼到 WhatsApp、Signal 或其他 Apps。").catch(()=>status.textContent="未能複製分享連結。");
   }
   function loadSharedDestination(){
     const p=new URLSearchParams(location.search);if(p.get("dzshare")!=="1")return;const to=$("#journeyTo"),status=$("#journeyStatus"),q=p.get("to")||p.get("label")||"",lat=Number(p.get("lat")),lon=Number(p.get("lon")),name=p.get("name")||"";
     if(to&&q)to.value=q;if(Number.isFinite(lat)&&Number.isFinite(lon))journeyState.destinationLocation={lat,lon,name:p.get("label")||q||"分享目的地"};
-    if(status)status.textContent=\`收到\${name?" "+name+" 嘅":""}目的地。撳「我的位置」，再搜尋路線。\`;
+    if(status)status.textContent=`收到${name?" "+name+" 嘅":""}目的地。撳「我的位置」，再搜尋路線。`;
     document.querySelector(".journey-planner")?.scrollIntoView({behavior:"smooth",block:"start"});
   }
   function install(){
     const from=$("#journeyFrom"),to=$("#journeyTo"),swap=$("#journeySwapBtn"),status=$("#journeyStatus");if(from){from.value="我的位置";from.readOnly=true;from.setAttribute("aria-readonly","true");}if(swap)swap.closest(".journey-swap")?.classList.add("hidden");
     if(to&&!$("#journeyMapPick")){const row=document.createElement("div"),pick=document.createElement("button");row.className="journey-destination-row";to.parentNode.insertBefore(row,to);row.appendChild(to);pick.id="journeyMapPick";pick.type="button";pick.textContent="地圖揀位";row.appendChild(pick);pick.addEventListener("click",async()=>{status.textContent="正在開啟地圖…";try{const origin=journeyState.originLocation||(journeyState.originLocation=await locate()),selected=await window.dzMap?.pickDestination?.({initial:origin});if(!selected){status.textContent="已取消地圖揀位。";return;}journeyState.destinationLocation=selected;to.value="地圖選擇位置";status.textContent=`已喺地圖揀位（${selected.lat.toFixed(5)}, ${selected.lon.toFixed(5)}），可搜尋路線。`;}catch(e){status.textContent=`未能開啟地圖：${e?.message||"請稍後再試"}。`;}});to.addEventListener("input",()=>{if(to.value!=="地圖選擇位置")journeyState.destinationLocation=null;});}
     if(status)status.textContent="第一階段：我的位置 → 輸入目的地或地圖揀位；50m 一級逐步擴大搜尋。";$("#journeyShareDestination")?.addEventListener("click",shareDestination);loadSharedDestination();
-    $("#journeySearchBtn")?.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();runJourneySearch();});$("#journeyUseLocation")?.addEventListener("click",async()=>{status.textContent="正在取得目前位置…";try{journeyState.originLocation=await locate();status.textContent="已取得位置，請輸入目的地。";}catch{status.textContent="未能取得位置，請檢查定位權限。";}});
+    $("#journeySearchBtn")?.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();runJourneySearch();});$("#journeyUseLocation")?.addEventListener("click",async e=>{const button=e.currentTarget,old=button.textContent;button.disabled=true;button.textContent="定位中…";status.textContent="正在取得目前位置…";try{journeyState.originLocation=await locate();from.value="我的位置";button.textContent="✓ 已定位";status.textContent="已取得位置，請輸入目的地。";}catch{button.textContent="定位失敗";status.textContent="未能取得位置，請檢查 Safari 定位權限。";}finally{setTimeout(()=>{button.disabled=false;button.textContent=old;},1800);}});
     document.querySelectorAll("[data-journey-mode]").forEach(b=>b.addEventListener("click",()=>{journeyState.mode=b.dataset.journeyMode;document.querySelectorAll("[data-journey-mode]").forEach(x=>x.classList.toggle("active",x===b));renderJourneyResults();}));
     $("#journeyResults")?.addEventListener("click",e=>{const card=e.target.closest("[data-journey-result]");if(!card)return;const r=resultList()[Number(card.dataset.journeyResult)];if(!r||r.kind==="mtr")return;const route=normalizedRoutes().find(x=>x.operator===r.operator&&String(x.route)===r.route&&String(x.bound).toUpperCase()===r.bound&&String(x.serviceType||"1")===r.serviceType);if(route)openRoute(route);});
   }
