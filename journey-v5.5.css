@@ -16,6 +16,8 @@
 .journey-transfer-card { border-color: rgba(245, 183, 0, .28); }
 .journey-transfer-card .journey-top > div:first-child { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .journey-transfer-card .journey-arrow { color: var(--muted); font-weight: 900; }
+.journey-leg-link { border: 0; border-bottom: 2px solid currentColor; padding: 1px 2px; background: transparent; color: inherit; font: inherit; font-weight: 900; cursor: pointer; }
+.journey-leg-link:active { opacity: .65; }
 .journey-planner #journeyQuickPlaces,
 .journey-planner #journeyRecentPlaces { display: none; }
 .journey-planner #journeyFrom[readonly] { opacity: .78; }

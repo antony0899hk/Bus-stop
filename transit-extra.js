@@ -4,7 +4,13 @@
   const NLB_API = "https://rt.data.gov.hk/v2/transport/nlb";
   const MTR_LINES_CSV = "https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv";
   const MTR_FARES_CSV = "https://opendata.mtr.com.hk/data/mtr_lines_fares.csv";
-  const MTR_RADIUS = 550;
+  // Point-to-point searches should still offer rail when a station needs a
+  // short feeder walk.  The old 550m hard cut-off silently removed MTR from
+  // otherwise useful journeys (for example, neighbourhoods around Sau Mau
+  // Ping).  Keep only the nearest few stations so the route search stays
+  // small and predictable.
+  const MTR_ACCESS_MAX = 2000;
+  const MTR_ACCESS_LIMIT = 4;
 
   // MTR is treated as a stable high-frequency backbone for journey planning.
   // We do not request Next Train ETA here. Journey time is deterministic:
@@ -197,7 +203,7 @@
         const c=mtrStationApproxCoords(s);
         if(!c)continue;
         const d=distanceMeters(location.lat,location.lon,c.lat,c.lon);
-        if(d<=MTR_RADIUS)out.push({...s,operator:"MTR",lat:c.lat,lon:c.lon,distance:d,rank:d});
+        if(d<=MTR_ACCESS_MAX)out.push({...s,operator:"MTR",lat:c.lat,lon:c.lon,distance:d,rank:d});
         continue;
       }
       const qq=q.toLowerCase();
@@ -205,7 +211,7 @@
       else if(tc.includes(q)||en.includes(qq))rank=1;
       if(rank<99)out.push({...s,operator:"MTR",distance:0,rank});
     }
-    return out.sort((a,b)=>a.rank-b.rank).slice(0,12);
+    return out.sort((a,b)=>a.rank-b.rank).slice(0,location?MTR_ACCESS_LIMIT:12);
   }
 
   function shortestMtrPath(startCodes,endCodes){
@@ -240,18 +246,26 @@
     await ensureMtrFares().catch(()=>{});
     const origins=mtrMatch(fromValue,originLocation), dests=mtrMatch(toValue,destinationLocation);
     if(!origins.length||!dests.length)return null;
-    const path=shortestMtrPath(origins.map(x=>x.code),dests.map(x=>x.code));
-    if(!path)return null;
+    let best=null;
+    for(const origin of origins)for(const destination of dests){
+      if(origin.code===destination.code)continue;
+      const path=shortestMtrPath([origin.code],[destination.code]);
+      if(!path)continue;
+      const walkMeters=Number(origin.distance||0)+Number(destination.distance||0);
+      const journeyMinutes=mtrFixedJourneyMinutes(path,walkMeters);
+      if(!best||journeyMinutes<best.journeyMinutes||journeyMinutes===best.journeyMinutes&&walkMeters<best.walkMeters)best={origin,destination,path,walkMeters,journeyMinutes};
+    }
+    if(!best)return null;
+    const {origin,destination,path,walkMeters,journeyMinutes}=best;
     const o=extra.mtrStations.get(path.path[0]), d=extra.mtrStations.get(path.path[path.path.length-1]);
     const uniqueLines=[];
     path.lines.forEach(l=>{if(uniqueLines[uniqueLines.length-1]!==l)uniqueLines.push(l);});
     const fare=extra.mtrFares.get(`${o.id}|${d.id}`) ?? extra.mtrFares.get(`${d.id}|${o.id}`) ?? null;
-    const walkMeters=(origins.find(x=>x.code===o.code)?.distance||0)+(dests.find(x=>x.code===d.code)?.distance||0);
-    const journeyMinutes=mtrFixedJourneyMinutes(path,walkMeters);
     return {
       kind:"mtr", operator:"MTR", route:uniqueLines.join(" → "),
       transferCount:Math.max(0,uniqueLines.length-1), stopCount:Math.max(0,path.path.length-1),
       walkMeters, fare, journeyMinutes, timeModel:"fixed",
+      originAccessMeters:Number(origin.distance||0), destinationAccessMeters:Number(destination.distance||0),
       originStop:{id:o.code,name:o.name_tc}, destinationStop:{id:d.code,name:d.name_tc},
       mtrPath:path.path, mtrLines:uniqueLines
     };
