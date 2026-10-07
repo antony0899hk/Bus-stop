@@ -39,12 +39,14 @@
 /* Compact favourite routes: three cards per row with two ETAs each. */
 #favorites{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .favorite-card,.favorite-card:last-child{position:relative;min-width:0;border-bottom:0;padding:0}
-.favorite-main{display:block;width:100%;min-height:82px;border:1px solid var(--border);border-radius:13px;background:var(--bg);color:var(--text);text-align:left;padding:9px 20px 9px 9px}
+.favorite-main{display:block;width:100%;min-height:122px;border:1px solid var(--border);border-radius:13px;background:var(--bg);color:var(--text);text-align:left;padding:10px 20px 10px 10px}
 .favorite-top{display:flex;align-items:center;gap:4px;min-width:0}
-.favorite-top strong{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:17px;line-height:1.1}
-.favorite-top .badge{padding:4px 5px;font-size:9px}
-.favorite-stop{display:none}
-.favorite-etas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;margin-top:8px;font-size:10px;white-space:nowrap}
-.favorite-etas strong,.favorite-etas span{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:1.2}
+.favorite-top strong{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:19px;line-height:1.15}
+.favorite-top .badge{padding:4px 6px;font-size:10px}
+.favorite-stop,.favorite-direction{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35}
+.favorite-stop{margin-top:8px;color:var(--text);font-weight:750}
+.favorite-direction{margin-top:2px;color:var(--muted)}
+.favorite-etas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;margin-top:8px;font-size:11px;white-space:nowrap}
+.favorite-etas strong,.favorite-etas span{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px;line-height:1.25}
 .eta-sep,.fav-warning{display:none}
 .remove-fav{right:2px;top:2px;min-width:28px;min-height:28px;padding:4px;font-size:15px;line-height:1}

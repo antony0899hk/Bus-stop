@@ -271,7 +271,7 @@ async function getFavoriteEtas(f) {
 function renderFavorites() {
   if (!state.favorites.length) { $("#favoritesSection").classList.add("hidden"); return; }
   $("#favoritesSection").classList.remove("hidden");
-  $("#favorites").innerHTML = state.favorites.map((f,i) => `<article class="favorite-card"><button class="favorite-main" data-fav="${i}"><div class="favorite-top"><strong>${escapeHtml(f.route)}</strong>${operatorBadge(f.operator)}</div><div class="favorite-etas" data-fav-eta="${i}"><span>更新中…</span></div></button><button class="remove-fav" data-remove-fav="${i}" aria-label="移除 ${escapeHtml(f.route)} 收藏">×</button></article>`).join("");
+  $("#favorites").innerHTML = state.favorites.map((f,i) => `<article class="favorite-card"><button class="favorite-main" data-fav="${i}"><div class="favorite-top"><strong>${escapeHtml(f.route)}</strong>${operatorBadge(f.operator)}</div><div class="favorite-stop" title="${escapeHtml(f.stopName || "車站")}">${escapeHtml(f.stopName || "車站")}</div><div class="favorite-direction" title="往 ${escapeHtml(f.destination || "目的地")}">→ ${escapeHtml(f.destination || "目的地")}</div><div class="favorite-etas" data-fav-eta="${i}"><span>更新中…</span></div></button><button class="remove-fav" data-remove-fav="${i}" aria-label="移除 ${escapeHtml(f.route)} 收藏">×</button></article>`).join("");
   $$("[data-fav]").forEach(b => b.addEventListener("click", () => {
     const f = state.favorites[Number(b.dataset.fav)];
     const r = normalizedRoutes().find(x => x.operator === f.operator && String(x.route) === String(f.route) && String(x.bound) === String(f.bound) && (!f.routeId || String(x.routeId) === String(f.routeId)));
