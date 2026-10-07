@@ -266,16 +266,12 @@ async function getFavoriteEtas(f) {
     const j = await getJSON(`${GMB_API}/eta/route-stop/${encodeURIComponent(f.routeId)}/${encodeURIComponent(f.routeSeq)}/${encodeURIComponent(f.stopSeq)}`, { ttl:20000 });
     data = j.data?.enabled === false ? [] : (j.data?.eta || []).map(e => ({ eta:e.timestamp, rmk_tc:e.remarks_tc || "" })).filter(x => validFutureEta(x.eta));
   }
-  return data.sort((a,b) => new Date(a.eta) - new Date(b.eta)).slice(0,3);
-}
-function favoriteWarning(f) {
-  const hay = `${f.origin} ${f.destination} ${f.stopName}`;
-  return state.warnings.find(w => w.location && hay.includes(w.location));
+  return data.sort((a,b) => new Date(a.eta) - new Date(b.eta)).slice(0,2);
 }
 function renderFavorites() {
   if (!state.favorites.length) { $("#favoritesSection").classList.add("hidden"); return; }
   $("#favoritesSection").classList.remove("hidden");
-  $("#favorites").innerHTML = state.favorites.map((f,i) => `<article class="favorite-card"><button class="favorite-main" data-fav="${i}"><div class="favorite-top"><strong>${escapeHtml(f.route)}</strong>${operatorBadge(f.operator)}</div><div class="favorite-stop"><strong>${escapeHtml(f.stopName)}</strong> → ${escapeHtml(f.destination)}</div><div class="favorite-etas" data-fav-eta="${i}"><span>正在更新 ETA…</span></div></button><button class="remove-fav" data-remove-fav="${i}" aria-label="移除 ${escapeHtml(f.route)} 收藏">移除</button></article>`).join("");
+  $("#favorites").innerHTML = state.favorites.map((f,i) => `<article class="favorite-card"><button class="favorite-main" data-fav="${i}"><div class="favorite-top"><strong>${escapeHtml(f.route)}</strong>${operatorBadge(f.operator)}</div><div class="favorite-etas" data-fav-eta="${i}"><span>更新中…</span></div></button><button class="remove-fav" data-remove-fav="${i}" aria-label="移除 ${escapeHtml(f.route)} 收藏">×</button></article>`).join("");
   $$("[data-fav]").forEach(b => b.addEventListener("click", () => {
     const f = state.favorites[Number(b.dataset.fav)];
     const r = normalizedRoutes().find(x => x.operator === f.operator && String(x.route) === String(f.route) && String(x.bound) === String(f.bound) && (!f.routeId || String(x.routeId) === String(f.routeId)));
@@ -287,8 +283,6 @@ function renderFavorites() {
     try {
       const etas = await getFavoriteEtas(f); if (!box.isConnected) return;
       box.innerHTML = etas.length ? etas.map(e => `<strong>${escapeHtml(etaLabel(e.eta))}</strong>`).join('<span class="eta-sep">｜</span>') : '<span>未有預報</span>';
-      const warning = favoriteWarning(f);
-      if (warning) box.insertAdjacentHTML("afterend", `<div class="fav-warning">⚠️ 可能受${escapeHtml(warning.location)}${escapeHtml(warning.detail)}影響</div>`);
     } catch { if (box.isConnected) box.innerHTML = '<span>暫時未能更新 ETA</span>'; }
   });
 }
