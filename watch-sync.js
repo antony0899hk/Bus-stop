@@ -67,5 +67,9 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     document.querySelector("#syncWatchFavs")?.addEventListener("click", syncToWatch);
+    const dialog = document.querySelector("#watchHelpDialog");
+    document.querySelector("#watchHelp")?.addEventListener("click", () => dialog?.showModal());
+    document.querySelector("#closeWatchHelp")?.addEventListener("click", () => dialog?.close());
+    dialog?.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
   });
 })();

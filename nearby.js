@@ -3,11 +3,14 @@
   const $ = s => document.querySelector(s);
   const PAGE_SIZE = 10;
   let radius = 50, generation = 0, shown = PAGE_SIZE;
+  let lastPosition = null, scannedRadius = 0, resultRows = new Map();
   let showNoEta = false;
   let countdownTimer = null;
   const selectedDirections = new Map();
   const controllers = new Set();
   let gmbRouteCatalog = null, gmbStopCatalog = null;
+  const busStopCatalogs = new Map(), mtrBusBundles = new Map();
+  let mtrStationCatalog = null;
   const pause = () => new Promise(r => setTimeout(r, 0));
   function cancel() { generation++; for (const c of controllers) c.abort(); controllers.clear(); const button=$('#locateBtn'); if(button)button.disabled=false; }
   async function json(url, options = {}) {
@@ -20,35 +23,37 @@
   let railNames=new Map();
   const lineNames={EAL:'東鐵綫',TML:'屯馬綫',TWL:'荃灣綫',KTL:'觀塘綫',ISL:'港島綫',TKL:'將軍澳綫',TCL:'東涌綫',AEL:'機場快綫',SIL:'南港島綫',DRL:'迪士尼綫'};
   function publish(rows) {
-    state.nearby=[...rows.values()].sort((a,b)=>(a.eta ? new Date(a.eta).getTime() : Infinity)-(b.eta ? new Date(b.eta).getTime() : Infinity) || a.distance-b.distance);
+    resultRows=rows;
+    state.nearby=[...rows.values()].filter(x=>!Number.isFinite(Number(x.distance))||Number(x.distance)<=radius).sort((a,b)=>(a.eta ? new Date(a.eta).getTime() : Infinity)-(b.eta ? new Date(b.eta).getTime() : Infinity) || a.distance-b.distance);
     render();
   }
-  async function addMtr(pos,selected,token,rows) {
+  async function addMtr(pos,selected,token,rows,minDistance=0,livePublish=true) {
     const busStops=new Map(), failures=[];
     if(token!==generation)return {stops:[],failures};
     try {
-      const catalog=await json('./runtime/mtr-stations.json?v='+encodeURIComponent(window.DZ_BUILD));
+      const catalog=mtrStationCatalog||(mtrStationCatalog=await json('./runtime/mtr-stations.json?v='+encodeURIComponent(window.DZ_BUILD)));
       if(token!==generation)return {stops:[],failures};
       if(!Array.isArray(catalog.data)||!catalog.data.length)throw Error('empty railway catalog');
       railNames=new Map(catalog.data.map(s=>[s.code,s.name_tc]));
       for(const s of catalog.data){
         const distance=distanceMeters(pos.lat,pos.lon,Number(s.lat),Number(s.lon));
-        if(!Number.isFinite(distance)||distance>selected)continue;
+        if(!Number.isFinite(distance)||distance>selected||distance<=minDistance)continue;
         const key='MTR|'+s.code;
         rows.set(key,{operator:'MTR',key,route:s.name_tc+'站',dest:(s.lines||[]).map(l=>lineNames[l]||l).join('／'),stopId:s.code,stopName:s.name_tc+'站',lat:s.lat,lon:s.lon,distance,eta:null,railStation:s,kind:'rail'});
       }
     }catch(e){if(token===generation)failures.push('港鐵車站資料');}
     if(token!==generation)return {stops:[],failures};
-    publish(rows);
+    if(livePublish)publish(rows);
     for(const region of ['tai-po','yuen-long-tin-shui-wai','tuen-mun']){
       if(token!==generation)return {stops:[],failures};
       try{
-        const bundle=await json('./runtime/mtr-bus/'+region+'.json?v='+encodeURIComponent(window.DZ_BUILD));
+        const bundle=mtrBusBundles.get(region)||await json('./runtime/mtr-bus/'+region+'.json?v='+encodeURIComponent(window.DZ_BUILD));
+        mtrBusBundles.set(region,bundle);
         if(token!==generation)return {stops:[],failures};
         if(!Array.isArray(bundle.routes))throw Error('invalid bus catalog');
         for(const route of bundle.routes)for(const dir of route.directions||[])for(const s of dir.stops||[]){
           const distance=distanceMeters(pos.lat,pos.lon,Number(s.lat),Number(s.long));
-          if(!Number.isFinite(distance)||distance>selected)continue;
+          if(!Number.isFinite(distance)||distance>selected||distance<=minDistance)continue;
           const key=['MTRB',route.route,dir.bound].join('|');
           const stop={operator:'MTRB',key,route:route.route,bound:dir.bound,serviceType:'1',dest:dir.stops.at(-1)?.name_tc||route.dest||'',stopId:String(s.id),stopName:s.name_tc||s.id,lat:Number(s.lat),lon:Number(s.long),distance,eta:null,mtrBusRegion:region,region};
           if(!busStops.has(key)||distance<busStops.get(key).distance)busStops.set(key,stop);
@@ -57,7 +62,7 @@
     }
     if(token!==generation)return {stops:[],failures};
     for(const [key,s] of busStops)rows.set(key,s);
-    publish(rows);
+    if(livePublish)publish(rows);
     return {stops:[...busStops.values()],failures};
   }
   async function openRailway(x){
@@ -175,7 +180,7 @@
     gmbRouteCatalog=new Map(routes.map(r=>[[String(r.routeId),String(r.routeSeq)].join('|'),r]));
     return gmbRouteCatalog;
   }
-  async function addGmbStops(pos, selected, token, found, seenStops) {
+  async function addGmbStops(pos, selected, token, found, seenStops, minDistance=0) {
     if(!gmbStopCatalog){
       const parts=await Promise.allSettled(Array.from({length:16},(_,i)=>json(`./gmb-stops-${i}.json?v=${window.DZ_BUILD || '5.3.2'}`)));
       if(token!==generation)return 0;
@@ -189,7 +194,7 @@
           const s=catalog[i],lat=Number(s.lat),lon=Number(s.long ?? s.lng ?? s.longitude);
           if(!Number.isFinite(lat)||!Number.isFinite(lon)||s.enabled===false)continue;
           const distance=distanceMeters(pos.lat,pos.lon,lat,lon),id=String(s.stop||s.id),key='GMB|'+id;
-          if(distance<=selected&&!seenStops.has(key)){
+          if(distance<=selected&&distance>minDistance&&!seenStops.has(key)){
             seenStops.add(key);
             found.push({operator:'GMB',stopId:id,stopName:s.name_tc||'',lat,lon,distance,routes:Array.isArray(s.routes)?s.routes:[]});
           }
@@ -197,7 +202,7 @@
         }
     return gmbStopCatalog.partCount;
   }
-  async function mergeGmbStop(stop, token, rows, routeCatalog) {
+  async function mergeGmbStop(stop, token, rows, routeCatalog, livePublish=true) {
     const refs=[...new Map((stop.routes||[]).map(r=>[[r.routeId,r.routeSeq,r.stopSeq].join('|'),r])).values()];
     let failed=0;
     for(const ref of refs) {
@@ -216,53 +221,59 @@
         const etas=j.data?.enabled===false?[]:(j.data?.eta||[]).map(e=>e.timestamp).filter(validFutureEta).sort((a,b)=>new Date(a)-new Date(b));
         rows.set(key,{...base,eta:etas[0]||null});
       } catch(e) { failed++; rows.set(key,{...base,eta:null,error:true}); }
-      publish(rows);await pause();
+      if(livePublish)publish(rows);await pause();
     }
     return failed;
   }
-  async function findStops(pos, selected, token) {
+  async function findStops(pos, selected, token, minDistance=0) {
     const found = []; const seenStops=new Set(); let sources = 0;
     for (const [operator,path] of [['KMB','kmb-stops.json'],['CTB','ctb-stops.json']]) {
       if (token !== generation) return {found:[],sources};
       try {
-        const j = await json(`./${path}?v=${window.DZ_BUILD || '5.3.1'}`);
-        if (!Array.isArray(j.data)) throw Error('invalid stop catalog');
+        let data=busStopCatalogs.get(operator);
+        if(!data){
+          const j = await json(`./${path}?v=${window.DZ_BUILD || '5.3.1'}`);
+          if (!Array.isArray(j.data)) throw Error('invalid stop catalog');
+          data=j.data;busStopCatalogs.set(operator,data);
+        }
         sources++;
-        for (let i=0;i<j.data.length;i++) {
+        for (let i=0;i<data.length;i++) {
           if (token !== generation) return {found:[],sources};
-          const s=j.data[i], lat=Number(s.lat), lon=Number(s.long ?? s.lng ?? s.longitude);
+          const s=data[i], lat=Number(s.lat), lon=Number(s.long ?? s.lng ?? s.longitude);
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
           const distance=distanceMeters(pos.lat,pos.lon,lat,lon);
           const id=String(s.stop||s.id),key=operator+'|'+id;
-          if(distance<=selected&&!seenStops.has(key)){seenStops.add(key);found.push({operator,stopId:id,stopName:s.name_tc||'',lat,lon,distance});}
+          if(distance<=selected&&distance>minDistance&&!seenStops.has(key)){seenStops.add(key);found.push({operator,stopId:id,stopName:s.name_tc||'',lat,lon,distance});}
           if (i%700===699) await pause();
         }
       } catch (e) { if (token !== generation) return {found:[],sources}; }
     }
-    const gmbParts=await addGmbStops(pos,selected,token,found,seenStops);
+    const gmbParts=await addGmbStops(pos,selected,token,found,seenStops,minDistance);
     if(gmbParts)sources++;
     return {found:found.sort((a,b)=>a.distance-b.distance),sources};
   }
-  async function run(position, selected, token) {
+  async function run(position, selected, token, minDistance=0) {
     const status=$('#nearbyStatus');
     try {
+      const livePublish=!minDistance;
       window.dzNearestStop?.remember?.(position);
-      const {found:busStops,sources} = await findStops({lat:position.coords.latitude,lon:position.coords.longitude},selected,token);
+      const beforeCount=groupRoutes(state.nearby).length;
+      const {found:busStops,sources} = await findStops({lat:position.coords.latitude,lon:position.coords.longitude},selected,token,minDistance);
       if (token !== generation) return;
-      const rows=new Map(); let completed=0, failed=0;
+      const rows=resultRows; let completed=0, failed=0;
       const mtrSchedules=new Map();
       const gmbRoutes=busStops.some(s=>s.operator==='GMB')?await loadGmbRoutes(token):new Map();
       if(token!==generation)return;
-      const extra=await addMtr({lat:position.coords.latitude,lon:position.coords.longitude},selected,token,rows);
+      const extra=await addMtr({lat:position.coords.latitude,lon:position.coords.longitude},selected,token,rows,minDistance,livePublish);
       if(token!==generation)return;
       const stops=[...busStops,...extra.stops];
       if(!sources&&!rows.size)throw Error('站點資料未能載入');
       for (const stop of stops) {
         if (token !== generation) return;
-        status.textContent=`${selected}m：已讀取 ${completed}/${stops.length} 個站／路線（九巴／城巴／小巴／港鐵巴士）`;
+        status.textContent=minDistance?`正在加入 ${minDistance}–${selected}m：已讀取 ${completed}/${stops.length} 個新站／路線`:`${selected}m：已讀取 ${completed}/${stops.length} 個站／路線（九巴／城巴／小巴／港鐵巴士）`;
         try {
           if(stop.operator==='GMB'){
-            failed+=await mergeGmbStop(stop,token,rows,gmbRoutes);completed++;publish(rows);await pause();continue;
+            failed+=await mergeGmbStop(stop,token,rows,gmbRoutes,livePublish);completed++;if(livePublish)publish(rows);await pause();continue;
           }
           const url=stop.operator==='KMB' ? `${KMB_API}/stop-eta/${encodeURIComponent(stop.stopId)}` : `https://rt.data.gov.hk/v1/transport/batch/stop-eta/CTB/${encodeURIComponent(stop.stopId)}`;
           let j;
@@ -282,25 +293,40 @@
           }
         } catch(e) { if (token !== generation) return; failed++; if(stop.operator==='MTRB')rows.set(stop.key,{...stop,error:true}); }
         completed++;
-        publish(rows); await pause();
+        if(livePublish)publish(rows); await pause();
       }
       if (token !== generation) return;
-      render();
-      status.textContent=`${selected}m：${stops.length} 個站、${groupRoutes([...rows.values()]).length} 個路線／車站。九巴／城巴／小巴／港鐵／港鐵巴士${extra.failures.length?`；未能載入：${extra.failures.join("、")}`:""}${sources<3?'；部分站點來源載入失敗':''}${failed?`；${failed} 個預報讀取失敗，結果未齊`:''}。未有 ETA 不代表停駛。`;
+      lastPosition=position;scannedRadius=Math.max(scannedRadius,selected);
+      const total=groupRoutes([...rows.values()].filter(x=>!Number.isFinite(Number(x.distance))||Number(x.distance)<=selected)).length,added=Math.max(0,total-beforeCount);
+      if(minDistance&&added)shown+=added;
+      publish(rows);
+      status.textContent=`${selected}m：${total} 個路線／車站${minDistance?`，今次新增 ${added} 個`:``}。九巴／城巴／小巴／港鐵／港鐵巴士${extra.failures.length?`；未能載入：${extra.failures.join("、")}`:""}${sources<3?'；部分站點來源載入失敗':''}${failed?`；${failed} 個預報讀取失敗，結果未齊`:''}。未有 ETA 不代表停駛。`;
     } catch(e) { if (token===generation) status.textContent=`搜尋未完成：${e.message}，可再次搜尋。`; }
     finally { if (token===generation) $('#locateBtn').disabled=false; }
   }
-  function search(value=radius) {
-    radius=Number.isFinite(Number(value))?Math.max(50,Math.min(1000,Math.round(Number(value)/50)*50)):50;
-    cancel(); const token=generation, selected=radius; shown=PAGE_SIZE; showNoEta=false; state.nearby=[]; selectedDirections.clear();
-    $('#nearbyResults').replaceChildren(); $('#nearbyCount').textContent=''; $('#nearbyMore').classList.add('hidden'); $('#nearbyCollapseTop').classList.add('hidden');
+  const normalizeRadius=value=>Number.isFinite(Number(value))?Math.max(50,Math.min(1000,Math.round(Number(value)/50)*50)):50;
+  function updateRadiusUi(){
     const radiusLabel=$('#nearRadiusValue');if(radiusLabel)radiusLabel.textContent=radius+' 米';
     const minus=$('[data-radius-step="-50"]');if(minus)minus.disabled=radius<=50;
     const plus=$('[data-radius-step="50"]');if(plus)plus.disabled=radius>=1000;
     $('.nearby-panel .panel-title').textContent=`📍 ${radius}m 附近路線`;
+  }
+  function search(value=radius) {
+    radius=normalizeRadius(value);
+    cancel(); const token=generation, selected=radius; shown=PAGE_SIZE; showNoEta=false; state.nearby=[];resultRows=new Map();scannedRadius=0;lastPosition=null;selectedDirections.clear();
+    $('#nearbyResults').replaceChildren(); $('#nearbyCount').textContent=''; $('#nearbyMore').classList.add('hidden'); $('#nearbyCollapseTop').classList.add('hidden');
+    updateRadiusUi();
     $('#nearbyStatus').textContent='正在取得位置…'; $('#locateBtn').disabled=true;
     if (!navigator.geolocation) { $('#nearbyStatus').textContent='此瀏覽器不支援定位'; $('#locateBtn').disabled=false; return; }
     navigator.geolocation.getCurrentPosition(p=>{if(token===generation)run(p,selected,token);},e=>{if(token!==generation)return;$('#nearbyStatus').textContent=e.code===1?'請允許定位':'未能取得位置，可再試';$('#locateBtn').disabled=false;},{enableHighAccuracy:false,maximumAge:60000,timeout:8000});
+  }
+  function changeRadius(value){
+    const next=normalizeRadius(value);if(next===radius)return;
+    radius=next;shown=PAGE_SIZE;showNoEta=false;updateRadiusUi();
+    if(!lastPosition){search(next);return;}
+    if(next<=scannedRadius){publish(resultRows);$('#nearbyStatus').textContent=`${next}m：已保留原有結果，無需重新搜尋。`;return;}
+    cancel();const token=generation,minDistance=scannedRadius;$('#nearbyStatus').textContent=`正在加入 ${minDistance}–${next}m 新結果…`;$('#locateBtn').disabled=true;
+    run(lastPosition,next,token,minDistance);
   }
   const controls=document.createElement('div');
   controls.innerHTML='<div class="filter-row near-radius-controls"><button type="button" data-radius-step="-50" class="filter" disabled aria-label="縮細搜尋範圍 50 米">−50 米</button><strong id="nearRadiusValue" aria-live="polite">50 米</strong><button type="button" data-radius-step="50" class="filter" aria-label="擴大搜尋範圍 50 米">＋50 米</button></div>';
@@ -314,14 +340,15 @@
     const swap=e.target.closest?.('[data-near-switch]');
     if(swap){e.preventDefault();e.stopImmediatePropagation();const group=visibleGroups().find(g=>g.key===swap.dataset.nearSwitch);if(!group)return;const active=activeRow(group);const next=group.directions[(group.directions.indexOf(active)+1)%group.directions.length];selectedDirections.set(group.key,next.directionKey);render();const replacement=[...document.querySelectorAll('[data-near-switch]')].find(b=>b.dataset.nearSwitch===group.key);replacement?.focus({preventScroll:true});return;}
     const step=e.target.closest?.('[data-radius-step]');
-    if(step){e.preventDefault();e.stopImmediatePropagation();search(radius+Number(step.dataset.radiusStep));return;}
+    if(step){e.preventDefault();e.stopImmediatePropagation();changeRadius(radius+Number(step.dataset.radiusStep));return;}
     const r=e.target.closest?.('[data-dz-radius]');
-    if(r || e.target.closest?.('#locateBtn')) { e.preventDefault(); e.stopImmediatePropagation(); search(r?Number(r.dataset.dzRadius):radius); return; }
+    if(r) { e.preventDefault(); e.stopImmediatePropagation(); changeRadius(Number(r.dataset.dzRadius)); return; }
+    if(e.target.closest?.('#locateBtn')) { e.preventDefault(); e.stopImmediatePropagation(); search(radius); return; }
     if(e.target.closest?.('#nearbyMore')) { e.stopImmediatePropagation(); showNoEta=true; shown+=PAGE_SIZE; render(); return; }
     if(e.target.closest?.('#nearbyCollapseTop')) { e.stopImmediatePropagation(); shown=PAGE_SIZE; showNoEta=false; render(); return; }
     const card=e.target.closest?.('[data-near-key]');
     if(card) { e.stopImmediatePropagation(); const x=state.nearby.find(x=>x.key===card.dataset.nearKey); if(!x)return;if(x.kind==='rail'){openRailway(x);return;}if(x.operator==='MTRB'){openRoute({...x,region:x.mtrBusRegion});return;}const r=normalizedRoutes().find(r=>r.operator===x.operator&&String(r.route)===String(x.route)&&r.bound===x.bound&&String(r.serviceType)===x.serviceType); if(r)openRoute(r);else{$('#routeSearch').value=x.route;state.searchFilter=x.operator;renderSearch();} }
   },true);
   window.addEventListener('pagehide',()=>{cancel();if(countdownTimer!==null){clearInterval(countdownTimer);countdownTimer=null;}});
-  window.dzNearby={version:'5.4.2',search,cancel,findStops,mergeRows,mergeGmbStop,addMtr,groupRoutes,refreshCountdown};
+  window.dzNearby={version:'5.5.9',search,changeRadius,cancel,findStops,mergeRows,mergeGmbStop,addMtr,groupRoutes,refreshCountdown};
 })();
