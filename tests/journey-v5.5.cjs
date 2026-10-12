@@ -7,6 +7,18 @@ const api=window.dzJourney;
 const address=api.parseAddressResponse({SuggestedAddress:[{Address:{PremisesAddress:{ChiPremisesAddress:{BuildingName:'港鐵上水站'},GeospatialInformation:{Latitude:'22.50149',Longitude:'114.12779'}}},ValidationInformation:{Score:50}}]},'上水站');
 assert.deepEqual(JSON.parse(JSON.stringify(address)),{lat:22.50149,lon:114.12779,name:'港鐵上水站',score:50});
 assert(api.tileKeys({lat:22.5,lon:114.12},50).length>0);
+const scanned=new Set(['KMB|A']);
+assert.deepEqual(JSON.parse(JSON.stringify(api.originRingStops([
+  {operator:'KMB',id:'A',distance:20},{operator:'KMB',id:'B',distance:45},
+  {operator:'KMB',id:'C',distance:75},{operator:'KMB',id:'D',distance:100}
+],50,100,scanned))),[{operator:'KMB',id:'C',distance:75},{operator:'KMB',id:'D',distance:100}]);
+assert.equal(api.sameBusRoute({operator:'KMB',route:'279X',bound:'O'},{operator:'KMB',route:'279X',bound:'I'}),true);
+assert.equal(api.sameBusRoute({operator:'KMB',route:'279X'},{operator:'CTB',route:'279X'}),false);
+assert.equal(api.matchesOperator({kind:'mtr',operator:'MTR'}),true);
+api.state.operatorFilter='MTR';
+assert.equal(api.matchesOperator({kind:'direct',operator:'KMB'}),false);
+api.state.operatorFilter='bus';
+assert.equal(api.matchesOperator({kind:'transfer',operator:'KMB'}),true);
 const prepared={seed:{operator:'KMB'},originIndex:0,sequence:[{id:'A'},{id:'B'},{id:'C'}]};
 const hit=api.destinationHitByIds(prepared,[{operator:'KMB',id:'B',distance:80},{operator:'KMB',id:'C',distance:30}]);
 assert.equal(hit.stop.id,'C');assert.equal(hit.index,2);
@@ -17,6 +29,7 @@ const transfer=api.transferHit(
 assert.equal(transfer.stopId,'T');assert.equal(transfer.firstIndex,2);assert.equal(transfer.secondIndex,1);
 assert(api.score({journeyMinutes:10,walkMeters:100,transferCount:0})<api.score({journeyMinutes:20,walkMeters:0,transferCount:0}));
 const journeySource=fs.readFileSync(path.join(__dirname,'../journey-v5.5.js'),'utf8');
+const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 const mapSource=fs.readFileSync(path.join(__dirname,'../nearby-map.js'),'utf8');
 assert(!journeySource.includes('ensureStopCatalog'));
 assert(journeySource.includes('destinationLocation'));
@@ -29,6 +42,8 @@ assert(journeySource.includes('eta:validFutureEta(x.eta)?x.eta:null'));
 assert(journeySource.includes('stop.routes||[]'));
 assert(journeySource.includes('data-journey-leg="1"'));
 assert(journeySource.includes('target.dataset.journeyLeg'));
-assert(journeySource.includes('mtr&&!rows.includes(mtr)'));
+assert(journeySource.includes('function matchesOperator(r)'));
+assert(html.includes('data-journey-operator="MTR"'));
+assert(html.includes('data-journey-operator="bus"'));
 assert(!journeySource.includes('q?\\`'));
 console.log('Passed: point-to-point accepts address/map coordinates, preserves no-ETA directions, links every transfer leg, and matches up to two transfers without loading the full HK stop catalog.');

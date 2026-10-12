@@ -1,9 +1,10 @@
 (() => {
   "use strict";
-  const VERSION="5.5.6",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_DEST_STOPS=8,MAX_SEED_ROUTES=18,MAX_DEST_ROUTES=24,MAX_MIDDLE_ROUTES=48;
+  const VERSION="5.6.0",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_DEST_STOPS=8,MAX_SEED_ROUTES=36,MAX_DEST_ROUTES=24,MAX_MIDDLE_ROUTES=48;
   const $=s=>document.querySelector(s),tileCache=new Map(),stopDetailCache=new Map(),terminalTransferCache=new Map(),routeSequenceCache=new Map();
-  const journeyState=window.journeyState=window.journeyState||{results:[],mode:"fastest",originLocation:null,destinationLocation:null,token:0};
+  const journeyState=window.journeyState=window.journeyState||{results:[],mode:"fastest",operatorFilter:"all",originLocation:null,destinationLocation:null,token:0};
   if(!("destinationLocation" in journeyState))journeyState.destinationLocation=null;
+  if(!("operatorFilter" in journeyState))journeyState.operatorFilter="all";
   let groundCell=0.005;
 
   async function json(url,ttl=300000){
@@ -50,15 +51,23 @@
     }
     return[...groups.values()];
   }
+  function originRingStops(stops,lowerExclusive,upperInclusive,checked=new Set(),limit=MAX_ORIGIN_STOPS){
+    return stops.filter(stop=>{
+      const d=Number(stop.distance),key=`${stop.operator}|${stop.id}`;
+      return Number.isFinite(d)&&d>lowerExclusive&&d<=upperInclusive&&!checked.has(key);
+    }).slice(0,limit);
+  }
+  function sameBusRoute(a,b){return Boolean(a&&b&&a.operator===b.operator&&String(a.route||"").trim().toUpperCase()===String(b.route||"").trim().toUpperCase());}
   const etaSortValue=eta=>eta?new Date(eta).getTime():Infinity;
   async function originSeeds(center,token,status){
     const groups=new Map(),checked=new Set();
     for(let radius=STEP;radius<=ORIGIN_MAX;radius+=STEP){
       if(token!==journeyState.token)return[];status.textContent=`起點 ${radius}m：正在搵附近可搭路線…`;
-      for(const stop of(await groundStops(center,radius)).slice(0,MAX_ORIGIN_STOPS)){
+      const ring=originRingStops(await groundStops(center,radius),radius===STEP?-1:radius-STEP,radius,checked);
+      for(const stop of ring){
         const sk=`${stop.operator}|${stop.id}`;if(checked.has(sk))continue;checked.add(sk);let rows=[];try{rows=await routesAtStop(stop);}catch{}
         for(const row of rows){const key=[row.operator,row.route,row.bound,row.serviceType].join("|"),old=groups.get(key);if(!old||row.originStop.distance<old.originStop.distance||new Date(row.eta)<new Date(old.eta))groups.set(key,row);}
-      }if(groups.size>=8)break;
+      }
     }
     const ranked=[...groups.values()].sort((a,b)=>a.originStop.distance-b.originStop.distance||etaSortValue(a.eta)-etaSortValue(b.eta)),operating=await pool(ranked,6,async row=>{if(row.eta)return row;const active=await window.dzTimetable?.isOperatingNow?.(row);return active===false?null:row;});
     return operating.slice(0,MAX_SEED_ROUTES);
@@ -143,7 +152,7 @@
       for(const first of prepared){
         const unmatched=[];
         for(const second of destinationPrepared){
-          if(first.seed.operator!==second.seed.operator||first.seed.route===second.seed.route&&first.seed.bound===second.seed.bound)continue;
+          if(first.seed.operator!==second.seed.operator||sameBusRoute(first.seed,second.seed))continue;
           const hit=transferHit(first,second);if(!hit){unmatched.push(second);continue;}
           const key=[first.seed.operator,first.seed.route,first.seed.bound,second.seed.route,second.seed.bound].join("|");
           if(found.has(key))continue;found.set(key,await makeTransferCandidate(first,second,hit));
@@ -157,8 +166,9 @@
           const options=await terminalTransferOptions(first);if(!options.length)continue;
           const middleSeeds=await staticSeedsAtStops(options.flatMap(x=>x.nearby),MAX_MIDDLE_ROUTES),middlePrepared=await pool(middleSeeds,6,prepareSeed);
           for(const middle of middlePrepared){
-            if(middle.seed.route===first.seed.route&&middle.seed.bound===first.seed.bound)continue;
+            if(sameBusRoute(first.seed,middle.seed))continue;
             for(const last of destinationPrepared){
+              if(sameBusRoute(middle.seed,last.seed)||sameBusRoute(first.seed,last.seed))continue;
               if(middle.seed.operator!==last.seed.operator)continue;const hit=transferHit(middle,last);if(!hit)continue;
               const firstOption=options.find(x=>x.nearby.some(s=>String(s.id)===String(middle.seed.originStop.id)))||options[0],key=[first.seed.route,middle.seed.route,last.seed.route].join(">");if(found.has(key))continue;found.set(key,await makeDoubleTransferCandidate(first,middle,last,firstOption,hit));if(found.size>=5)break;
             }
@@ -172,9 +182,10 @@
     return[...found.values()];
   }
   function score(r){if(journeyState.mode==="walking")return Number(r.walkMeters||0)*100+Number(r.journeyMinutes||999);if(journeyState.mode==="transfers")return Number(r.transferCount||0)*100000+Number(r.journeyMinutes||999);if(journeyState.mode==="cheapest")return(Number.isFinite(r.fare)?r.fare:999)*1000+Number(r.journeyMinutes||999);return Number(r.journeyMinutes||999)*100+Number(r.walkMeters||0)/20;}
-  const resultList=()=>{const sorted=[...journeyState.results].sort((a,b)=>score(a)-score(b)||Number(a.destinationStop?.distance||0)-Number(b.destinationStop?.distance||0)),rows=sorted.slice(0,10),mtr=sorted.find(r=>r.kind==="mtr");if(mtr&&!rows.includes(mtr)){if(rows.length>=10)rows[rows.length-1]=mtr;else rows.push(mtr);rows.sort((a,b)=>score(a)-score(b));}return rows;};
+  function matchesOperator(r){if(journeyState.operatorFilter==="MTR")return r.kind==="mtr"||r.operator==="MTR";if(journeyState.operatorFilter==="bus")return r.kind!=="mtr"&&r.operator!=="MTR";return true;}
+  const resultList=()=>{const sorted=journeyState.results.filter(matchesOperator).sort((a,b)=>score(a)-score(b)||Number(a.destinationStop?.distance||0)-Number(b.destinationStop?.distance||0));return sorted.slice(0,10);};
   function renderJourneyResults(){
-    const box=$("#journeyResults");if(!box)return;const rows=resultList();if(!rows.length){box.innerHTML='<div class="empty">暫時搵唔到直達、兩次轉車內或合適港鐵方案；可嘗試輸入更完整街名／大廈名。</div>';return;}
+    const box=$("#journeyResults");if(!box)return;const rows=resultList();if(!rows.length){box.innerHTML=journeyState.operatorFilter==="MTR"?'<div class="empty">今次未找到港鐵方案；可確認起點／目的地位置，或改選「全部」查看巴士方案。</div>':'<div class="empty">暫時搵唔到直達、兩次轉車內或合適港鐵方案；可嘗試輸入更完整街名／大廈名。</div>';return;}
     box.innerHTML=rows.map((r,i)=>{if(r.kind==="mtr"){const names=(r.mtrPath||[]).map(c=>window.dzExtraTransit?.mtrStations?.get(c)?.name_tc||c);return`<article class="journey-card journey-mtr-card"><div class="journey-rank">${i+1}</div><div class="journey-main"><div class="journey-top"><div>${operatorBadge("MTR")} <strong class="journey-route">${escapeHtml(r.route||"港鐵")}</strong></div><div class="journey-eta">約 ${Number(r.journeyMinutes)||0} 分鐘</div></div><div class="journey-title">${escapeHtml(names[0]||r.originStop?.name)} → ${escapeHtml(names.at(-1)||r.destinationStop?.name)}</div><div class="journey-meta">${r.transferCount?`轉 ${r.transferCount} 次 · `:""}${r.stopCount} 站 · 接駁步行約 ${Math.round(r.walkMeters||0)}m${r.fare!=null?` · $${Number(r.fare).toFixed(1)}`:""}</div></div></article>`;}
       if(r.kind==="multi_transfer")return`<article class="journey-card journey-transfer-card"><div class="journey-rank">${i+1}</div><div class="journey-main"><div class="journey-top"><div>${r.legs.map((leg,n)=>`${n?'<span class="journey-arrow">→</span> ':''}${operatorBadge(leg.operator)} <button type="button" class="journey-leg-link" data-journey-result="${i}" data-journey-leg="${n}" aria-label="查看 ${escapeHtml(leg.route)} 路線資料">${escapeHtml(leg.route)}</button>`).join(" ")}</div><div class="journey-eta">約 ${r.journeyMinutes} 分鐘</div></div><div class="journey-title">${escapeHtml(r.originStop.name)} → ${escapeHtml(r.transfers[0]?.name||"轉車站")} → ${escapeHtml(r.transfers[1]?.name||"轉車站")} → ${escapeHtml(r.destinationStop.name)}</div><div class="journey-meta">轉 2 次 · ${r.stopCount} 站 · 全程步行約 ${Math.round(r.walkMeters)}m</div><div class="journey-note">每一程路線號碼都可以撳入路線資料 · 第一程下一班 ${escapeHtml(etaLabel(r.eta))}</div></div></article>`;
       if(r.kind==="transfer")return`<article class="journey-card journey-transfer-card"><div class="journey-rank">${i+1}</div><div class="journey-main"><div class="journey-top"><div>${operatorBadge(r.first.operator)} <button type="button" class="journey-leg-link" data-journey-result="${i}" data-journey-leg="0" aria-label="查看 ${escapeHtml(r.first.route)} 路線資料">${escapeHtml(r.first.route)}</button> <span class="journey-arrow">→</span> ${operatorBadge(r.second.operator)} <button type="button" class="journey-leg-link" data-journey-result="${i}" data-journey-leg="1" aria-label="查看 ${escapeHtml(r.second.route)} 路線資料">${escapeHtml(r.second.route)}</button></div><div class="journey-eta">約 ${r.journeyMinutes} 分鐘</div></div><div class="journey-title">${escapeHtml(r.originStop.name)} → ${escapeHtml(r.transferStopName)} → ${escapeHtml(r.destinationStop.name)}</div><div class="journey-meta">轉 1 次 · ${r.stopCount} 站 · 起點步行 ${Math.round(r.originStop.distance)}m · 目的地步行 ${Math.round(r.destinationStop.distance)}m</div><div class="journey-note">每一程路線號碼都可以撳入路線資料 · 第一程下一班 ${escapeHtml(etaLabel(r.eta))}</div></div></article>`;
@@ -214,8 +225,9 @@
     if(status)status.textContent="我的位置 → 輸入目的地或地圖揀位；50m 一級逐步擴大，支援直達及最多兩次轉車。";$("#journeyShareDestination")?.addEventListener("click",shareDestination);loadSharedDestination();
     $("#journeySearchBtn")?.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();runJourneySearch();});$("#journeyUseLocation")?.addEventListener("click",async e=>{const button=e.currentTarget,old=button.textContent;button.disabled=true;button.textContent="定位中…";status.textContent="正在取得目前位置…";try{journeyState.originLocation=await locate();from.value="我的位置";button.textContent="✓ 已定位";status.textContent="已取得位置，請輸入目的地。";}catch{button.textContent="定位失敗";status.textContent="未能取得位置，請檢查 Safari 定位權限。";}finally{setTimeout(()=>{button.disabled=false;button.textContent=old;},1800);}});
     document.querySelectorAll("[data-journey-mode]").forEach(b=>b.addEventListener("click",()=>{journeyState.mode=b.dataset.journeyMode;document.querySelectorAll("[data-journey-mode]").forEach(x=>x.classList.toggle("active",x===b));renderJourneyResults();}));
+    document.querySelectorAll("[data-journey-operator]").forEach(b=>b.addEventListener("click",()=>{journeyState.operatorFilter=b.dataset.journeyOperator;document.querySelectorAll("[data-journey-operator]").forEach(x=>x.classList.toggle("active",x===b));renderJourneyResults();}));
     $("#journeyResults")?.addEventListener("click",e=>{const target=e.target.closest("[data-journey-result]");if(!target)return;const r=resultList()[Number(target.dataset.journeyResult)];if(!r||r.kind==="mtr")return;const legs=r.kind==="transfer"?[r.first,r.second]:r.kind==="multi_transfer"?r.legs:[r],requested=target.hasAttribute("data-journey-leg")?Number(target.dataset.journeyLeg):0,leg=legs[requested];if(!leg)return;const route=normalizedRoutes().find(x=>x.operator===leg.operator&&String(x.route)===leg.route&&String(x.bound).toUpperCase()===leg.bound&&String(x.serviceType||"1")===leg.serviceType);if(route)openRoute(route);});
   }
-  window.renderJourneyResults=renderJourneyResults;window.runJourneySearch=runJourneySearch;window.dzJourney={version:VERSION,state:journeyState,tileKeys,groundStops,parseAddressResponse,destinationHitByIds,transferHit,score,run:runJourneySearch};
+  window.renderJourneyResults=renderJourneyResults;window.runJourneySearch=runJourneySearch;window.dzJourney={version:VERSION,state:journeyState,tileKeys,groundStops,parseAddressResponse,destinationHitByIds,transferHit,originRingStops,sameBusRoute,matchesOperator,score,run:runJourneySearch};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install,{once:true});else install();
 })();
