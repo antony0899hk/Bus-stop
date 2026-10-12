@@ -18,6 +18,8 @@ const state = {
 };
 
 const responseCache = new Map();
+let routeEtaRefreshTimer = null;
+let routeEtaRefreshBusy = false;
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -53,7 +55,7 @@ async function getJSON(url, { ttl = 30000, retries = 1 } = {}) {
 }
 function etaMinutes(iso) {
   if (!iso) return null;
-  return Math.max(0, Math.round((new Date(iso) - new Date()) / 60000));
+  return Math.ceil((new Date(iso) - new Date()) / 60000);
 }
 function validFutureEta(iso) {
   const t = new Date(iso).getTime();
@@ -61,7 +63,11 @@ function validFutureEta(iso) {
 }
 function etaLabel(iso) {
   if (!iso) return "未有預報";
-  const m = etaMinutes(iso);
+  const ms = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(ms)) return "未有預報";
+  if (ms < -15000) return "更新中";
+  if (ms <= 30000) return "即將到站";
+  const m = Math.max(0, Math.ceil(ms / 60000));
   return m === 0 ? "即將到站" : `${m} 分鐘`;
 }
 function distanceMeters(aLat, aLon, bLat, bLon) {
@@ -167,6 +173,7 @@ function routeServiceSummary(r) {
 }
 
 async function renderRouteDetail() {
+  clearRouteEtaRefresh();
   const r = state.selectedRoute;
   if (!r) return;
   $("#routeHeader").innerHTML = `<div class="route-title"><div class="route-heading"><div class="number">${escapeHtml(r.route)}</div><div class="dest">${escapeHtml(r.orig)} ↔ ${escapeHtml(r.dest)}</div><div class="route-meta">${operatorBadge(r.operator)}<span class="dz-full-fare">車費載入中</span></div></div>${routeServiceSummary(r)}</div>`;
@@ -188,22 +195,16 @@ async function renderKmbRoute(r) {
   const j = await getJSON(`${KMB_API}/route-stop/${encodeURIComponent(r.route)}/${dir}/${encodeURIComponent(r.serviceType)}`, { ttl:300000 });
   const stops = j.data || [];
   renderStopRows(stops, r, "KMB");
-  await parallel(stops, 5, async rs => {
-    const j = await getJSON(`${KMB_API}/eta/${encodeURIComponent(rs.stop)}/${encodeURIComponent(r.route)}/${encodeURIComponent(r.serviceType)}`, { ttl:20000 });
-    const etas = (j.data || []).filter(x => x.dir === r.bound && Number(x.seq) === Number(rs.seq)).sort((a,b) => Number(a.eta_seq || 99) - Number(b.eta_seq || 99)).slice(0,3);
-    fillEta(rs.stop, etas);
-  });
+  await parallel(stops, 5, async rs => fillEta(rs.stop, await routeEtas(r, rs, "KMB")));
+  startRouteEtaRefresh(r, stops, "KMB");
 }
 async function renderCtbRoute(r) {
   const dir = r.bound === "I" ? "inbound" : "outbound";
   const j = await getJSON(`${CTB_API}/route-stop/ctb/${encodeURIComponent(r.route)}/${dir}`, { ttl:300000 });
   const stops = (j.data || []).filter(x => !x.dir || x.dir === r.bound);
   renderStopRows(stops, r, "CTB");
-  await parallel(stops, 5, async rs => {
-    const j = await getJSON(`${CTB_API}/eta/ctb/${encodeURIComponent(rs.stop)}/${encodeURIComponent(r.route)}`, { ttl:20000 });
-    const etas = (j.data || []).filter(x => !r.bound || !x.dir || String(x.dir).toLowerCase() === String(r.bound).toLowerCase()).sort((a,b) => Number(a.eta_seq || 99) - Number(b.eta_seq || 99)).slice(0,3);
-    fillEta(rs.stop, etas);
-  });
+  await parallel(stops, 5, async rs => fillEta(rs.stop, await routeEtas(r, rs, "CTB")));
+  startRouteEtaRefresh(r, stops, "CTB");
 }
 async function renderGmbRoute(r) {
   const j = await getJSON(`${GMB_API}/route-stop/${encodeURIComponent(r.routeId)}/${encodeURIComponent(r.routeSeq)}`, { ttl:300000 });
@@ -213,12 +214,58 @@ async function renderGmbRoute(r) {
     state.gmbStops.set(s.stop, { ...old, stop:s.stop, name_tc:s.name_tc || old.name_tc });
   });
   renderStopRows(stops, r, "GMB");
-  await parallel(stops, 4, async rs => {
-    const j = await getJSON(`${GMB_API}/eta/route-stop/${encodeURIComponent(r.routeId)}/${encodeURIComponent(r.routeSeq)}/${encodeURIComponent(rs.seq)}`, { ttl:20000 });
-    const data = j.data || {};
-    const etas = data.enabled === false ? [] : (data.eta || []).map(e => ({ eta:e.timestamp, rmk_tc:e.remarks_tc || "", eta_seq:e.eta_seq }));
-    fillEta(rs.stop, etas.sort((a,b) => Number(a.eta_seq || 99) - Number(b.eta_seq || 99)).slice(0,3));
-  });
+  await parallel(stops, 4, async rs => fillEta(rs.stop, await routeEtas(r, rs, "GMB")));
+  startRouteEtaRefresh(r, stops, "GMB");
+}
+function freshRouteEtas(rows) {
+  const now = Date.now();
+  return rows.filter(x => {
+    const t = new Date(x.eta || "").getTime();
+    return Number.isFinite(t) && t >= now - 5000 && t <= now + 3 * 60 * 60 * 1000;
+  }).sort((a,b) => new Date(a.eta) - new Date(b.eta)).slice(0,3);
+}
+async function routeEtas(r, rs, op) {
+  let data = [];
+  if (op === "KMB") {
+    const j = await getJSON(`${KMB_API}/eta/${encodeURIComponent(rs.stop)}/${encodeURIComponent(r.route)}/${encodeURIComponent(r.serviceType)}`, { ttl:20000, retries:0 });
+    data = (j.data || []).filter(x => x.dir === r.bound && Number(x.seq) === Number(rs.seq));
+  } else if (op === "CTB") {
+    const j = await getJSON(`${CTB_API}/eta/ctb/${encodeURIComponent(rs.stop)}/${encodeURIComponent(r.route)}`, { ttl:20000, retries:0 });
+    data = (j.data || []).filter(x => !r.bound || !x.dir || String(x.dir).toLowerCase() === String(r.bound).toLowerCase());
+  } else {
+    const j = await getJSON(`${GMB_API}/eta/route-stop/${encodeURIComponent(r.routeId)}/${encodeURIComponent(r.routeSeq)}/${encodeURIComponent(rs.seq)}`, { ttl:20000, retries:0 });
+    const payload = j.data || {};
+    data = payload.enabled === false ? [] : (payload.eta || []).map(e => ({ eta:e.timestamp, rmk_tc:e.remarks_tc || "", eta_seq:e.eta_seq }));
+  }
+  return freshRouteEtas(data);
+}
+function clearRouteEtaRefresh() {
+  if (routeEtaRefreshTimer !== null) clearInterval(routeEtaRefreshTimer);
+  routeEtaRefreshTimer = null;
+}
+function startRouteEtaRefresh(r, stops, op) {
+  clearRouteEtaRefresh();
+  const routeKey = [op,r.route,r.bound,r.serviceType,r.routeId,r.routeSeq].join("|");
+  routeEtaRefreshTimer = setInterval(async () => {
+    const root = $("#stops");
+    if (routeEtaRefreshBusy || document.hidden || !root || $("#routeSection")?.classList.contains("hidden") || state.selectedRoute !== r) return;
+    const visible = stops.filter(rs => {
+      const row = root.querySelector(`.stop-row[data-stop-id="${CSS.escape(String(rs.stop || rs.stop_id))}"]`);
+      if (!row || !row.querySelector(".etas")) return false;
+      const rect = row.getBoundingClientRect();
+      const margin = Math.max(180, window.innerHeight * 0.5);
+      return rect.bottom >= -margin && rect.top <= window.innerHeight + margin;
+    });
+    routeEtaRefreshBusy = true;
+    try {
+      await parallel(visible, 3, async rs => {
+        try {
+          const etas = await routeEtas(r, rs, op);
+          if (state.selectedRoute === r && $("#stops")?.dataset.routeEtaContext === routeKey) fillEta(rs.stop || rs.stop_id, etas);
+        } catch { /* Keep the last forecast when a refresh temporarily fails. */ }
+      });
+    } finally { routeEtaRefreshBusy = false; }
+  }, 30000);
 }
 function renderStopRows(stops, r, op) {
   const stopMap = stopMapFor(op);
@@ -232,6 +279,7 @@ function renderStopRows(stops, r, op) {
   }).join("");
   const root=$("#stops"), context=[op,r.route,r.bound,r.serviceType].join("|");
   root.dataset.nearestContext=context;
+  root.dataset.routeEtaContext=[op,r.route,r.bound,r.serviceType,r.routeId||"",r.routeSeq||""].join("|");
   const decorateNearest=()=>window.dzNearestStop?.decorate?.(stops, rs => {
     const id=String(rs.stop || rs.stop_id), s=stopMap.get(id) || rs;
     return { lat:s.lat, lon:s.long ?? s.lng ?? s.lon ?? s.longitude };
@@ -333,7 +381,7 @@ function formatTime(v) { return v ? new Intl.DateTimeFormat("zh-HK", { hour:"2-d
 $("#searchBtn").addEventListener("click", renderSearch);
 $("#routeSearch").addEventListener("keydown", e => { if (e.key === "Enter") renderSearch(); });
 $("#routeSearch").addEventListener("input", () => { if ($("#routeSearch").value.trim().length >= 2) renderSearch(); });
-$("#backBtn").addEventListener("click", () => { $("#routeSection").classList.add("hidden"); $("#resultsSection").classList.remove("hidden"); });
+$("#backBtn").addEventListener("click", () => { clearRouteEtaRefresh(); $("#routeSection").classList.add("hidden"); $("#resultsSection").classList.remove("hidden"); });
 $("#clearFavs").addEventListener("click", () => { state.favorites = []; saveFavorites(); renderFavorites(); });
 $("#nearbyMore").addEventListener("click", toggleNearby);
 $("#nearbyCollapseTop").addEventListener("click", toggleNearby);
