@@ -14,6 +14,11 @@ assert.deepEqual(JSON.parse(JSON.stringify(api.originRingStops([
 ],50,100,scanned))),[{operator:'KMB',id:'C',distance:75},{operator:'KMB',id:'D',distance:100}]);
 assert.equal(api.sameBusRoute({operator:'KMB',route:'279X',bound:'O'},{operator:'KMB',route:'279X',bound:'I'}),true);
 assert.equal(api.sameBusRoute({operator:'KMB',route:'279X'},{operator:'CTB',route:'279X'}),false);
+const nearEta={operator:'KMB',route:'279X',eta:'2026-10-17T00:00:00+08:00',originStop:{distance:18,id:'NEAR'}};
+const farNoEta={operator:'KMB',route:'279X',eta:null,originStop:{distance:42,id:'FAR'}};
+assert.equal(api.preferRouteObservation(farNoEta,nearEta),false,'a farther no-ETA stop must not replace the nearest boarding stop');
+assert.equal(api.preferRouteObservation({...farNoEta,originStop:{distance:12,id:'CLOSER'}},nearEta),true,'the closest boarding stop wins even when it has no ETA');
+assert.equal(api.preferRouteObservation({...nearEta,eta:'2026-10-16T23:59:00+08:00'},nearEta),true,'at the same stop distance, prefer the earlier valid ETA');
 assert.equal(api.matchesOperator({kind:'mtr',operator:'MTR'}),true);
 api.state.operatorFilter='MTR';
 assert.equal(api.matchesOperator({kind:'direct',operator:'KMB'}),false);

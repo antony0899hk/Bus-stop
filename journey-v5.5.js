@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const VERSION="5.6.0",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_DEST_STOPS=8,MAX_SEED_ROUTES=36,MAX_DEST_ROUTES=24,MAX_MIDDLE_ROUTES=48;
+  const VERSION="5.6.2",STEP=50,ORIGIN_MAX=400,DEST_MAX=1000,MAX_ORIGIN_STOPS=8,MAX_DEST_STOPS=8,MAX_SEED_ROUTES=36,MAX_DEST_ROUTES=24,MAX_MIDDLE_ROUTES=48;
   const $=s=>document.querySelector(s),tileCache=new Map(),stopDetailCache=new Map(),terminalTransferCache=new Map(),routeSequenceCache=new Map();
   const journeyState=window.journeyState=window.journeyState||{results:[],mode:"fastest",operatorFilter:"all",originLocation:null,destinationLocation:null,token:0};
   if(!("destinationLocation" in journeyState))journeyState.destinationLocation=null;
@@ -59,6 +59,12 @@
   }
   function sameBusRoute(a,b){return Boolean(a&&b&&a.operator===b.operator&&String(a.route||"").trim().toUpperCase()===String(b.route||"").trim().toUpperCase());}
   const etaSortValue=eta=>eta?new Date(eta).getTime():Infinity;
+  function preferRouteObservation(candidate,current){
+    if(!current)return true;
+    const candidateDistance=Number(candidate.originStop?.distance),currentDistance=Number(current.originStop?.distance);
+    if(Number.isFinite(candidateDistance)&&Number.isFinite(currentDistance)&&candidateDistance!==currentDistance)return candidateDistance<currentDistance;
+    return etaSortValue(candidate.eta)<etaSortValue(current.eta);
+  }
   async function originSeeds(center,token,status){
     const groups=new Map(),checked=new Set();
     for(let radius=STEP;radius<=ORIGIN_MAX;radius+=STEP){
@@ -66,7 +72,7 @@
       const ring=originRingStops(await groundStops(center,radius),radius===STEP?-1:radius-STEP,radius,checked);
       for(const stop of ring){
         const sk=`${stop.operator}|${stop.id}`;if(checked.has(sk))continue;checked.add(sk);let rows=[];try{rows=await routesAtStop(stop);}catch{}
-        for(const row of rows){const key=[row.operator,row.route,row.bound,row.serviceType].join("|"),old=groups.get(key);if(!old||row.originStop.distance<old.originStop.distance||new Date(row.eta)<new Date(old.eta))groups.set(key,row);}
+        for(const row of rows){const key=[row.operator,row.route,row.bound,row.serviceType].join("|"),old=groups.get(key);if(preferRouteObservation(row,old))groups.set(key,row);}
       }
     }
     const ranked=[...groups.values()].sort((a,b)=>a.originStop.distance-b.originStop.distance||etaSortValue(a.eta)-etaSortValue(b.eta)),operating=await pool(ranked,6,async row=>{if(row.eta)return row;const active=await window.dzTimetable?.isOperatingNow?.(row);return active===false?null:row;});
@@ -146,7 +152,7 @@
       if(token!==journeyState.token)return[];status.textContent=`目的地 ${radius}m：正在配對一程轉車…`;
       for(const stop of(await groundStops(center,radius)).slice(0,MAX_DEST_STOPS)){
         const sk=`${stop.operator}|${stop.id}`;if(checked.has(sk))continue;checked.add(sk);let rows=[];try{rows=await routesAtStop(stop);}catch{}
-        for(const row of rows){const key=[row.operator,row.route,row.bound,row.serviceType].join("|"),old=groups.get(key);if(!old||row.originStop.distance<old.originStop.distance||etaSortValue(row.eta)<etaSortValue(old.eta))groups.set(key,row);}
+        for(const row of rows){const key=[row.operator,row.route,row.bound,row.serviceType].join("|"),old=groups.get(key);if(preferRouteObservation(row,old))groups.set(key,row);}
       }
       const destinationPrepared=await pool([...groups.values()].slice(0,MAX_DEST_ROUTES),4,prepareSeed);
       for(const first of prepared){
@@ -228,6 +234,6 @@
     document.querySelectorAll("[data-journey-operator]").forEach(b=>b.addEventListener("click",()=>{journeyState.operatorFilter=b.dataset.journeyOperator;document.querySelectorAll("[data-journey-operator]").forEach(x=>x.classList.toggle("active",x===b));renderJourneyResults();}));
     $("#journeyResults")?.addEventListener("click",e=>{const target=e.target.closest("[data-journey-result]");if(!target)return;const r=resultList()[Number(target.dataset.journeyResult)];if(!r||r.kind==="mtr")return;const legs=r.kind==="transfer"?[r.first,r.second]:r.kind==="multi_transfer"?r.legs:[r],requested=target.hasAttribute("data-journey-leg")?Number(target.dataset.journeyLeg):0,leg=legs[requested];if(!leg)return;const route=normalizedRoutes().find(x=>x.operator===leg.operator&&String(x.route)===leg.route&&String(x.bound).toUpperCase()===leg.bound&&String(x.serviceType||"1")===leg.serviceType);if(route)openRoute(route);});
   }
-  window.renderJourneyResults=renderJourneyResults;window.runJourneySearch=runJourneySearch;window.dzJourney={version:VERSION,state:journeyState,tileKeys,groundStops,parseAddressResponse,destinationHitByIds,transferHit,originRingStops,sameBusRoute,matchesOperator,score,run:runJourneySearch};
+  window.renderJourneyResults=renderJourneyResults;window.runJourneySearch=runJourneySearch;window.dzJourney={version:VERSION,state:journeyState,tileKeys,groundStops,parseAddressResponse,destinationHitByIds,transferHit,originRingStops,sameBusRoute,preferRouteObservation,matchesOperator,score,run:runJourneySearch};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install,{once:true});else install();
 })();
