@@ -275,7 +275,10 @@ function renderStopRows(stops, r, op) {
     const stopSeq = Number(rs.seq || rs.stop_seq || i + 1);
     const key = favKey(op, r.route, r.bound, r.serviceType, id, r.routeId, stopSeq);
     const fav = state.favorites.some(f => f.key === key);
-    return `<div class="stop-row" data-stop-id="${escapeHtml(id)}"><div class="stop-no">${i+1}</div><div><div class="stop-name">${escapeHtml(s?.name_tc || rs.name_tc || id)}</div><div class="etas"><span class="eta-chip">載入 ETA…</span></div></div><div class="stop-actions"><div class="fare-cell" data-fare-stop="${escapeHtml(id)}" data-fare-seq="${stopSeq}">車費 —</div><button class="fav-btn ${fav ? "active" : ""}" data-fav-stop="${escapeHtml(id)}" data-fav-seq="${stopSeq}" aria-label="收藏">${fav ? "★" : "☆"}</button></div></div>`;
+    const stopName=s?.name_tc || rs.name_tc || id;
+    const lat=Number(s?.lat ?? s?.latitude ?? rs.lat),lon=Number(s?.long ?? s?.lng ?? s?.longitude ?? rs.lon);
+    const walkCoords=Number.isFinite(lat)&&Number.isFinite(lon)?`data-walk-lat="${lat}" data-walk-lon="${lon}"`:"";
+    return `<div class="stop-row" data-stop-id="${escapeHtml(id)}"><div class="stop-no">${i+1}</div><div><button type="button" class="stop-name stop-walk-link" ${walkCoords} data-walk-name="${escapeHtml(stopName)}" aria-label="步行前往${escapeHtml(stopName)}">${escapeHtml(stopName)}</button><div class="etas"><span class="eta-chip">載入 ETA…</span></div></div><div class="stop-actions"><div class="fare-cell" data-fare-stop="${escapeHtml(id)}" data-fare-seq="${stopSeq}">車費 —</div><button class="fav-btn ${fav ? "active" : ""}" data-fav-stop="${escapeHtml(id)}" data-fav-seq="${stopSeq}" aria-label="收藏">${fav ? "★" : "☆"}</button></div></div>`;
   }).join("");
   const root=$("#stops"), context=[op,r.route,r.bound,r.serviceType].join("|");
   root.dataset.nearestContext=context;
