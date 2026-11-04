@@ -20,6 +20,14 @@ function contextWith(fetchImpl){const warnings=[];const context={window:{},local
   assert.equal(api.detailedMatch([codedWrong],{operator:'KMB',route:'1',bound:'O',serviceType:'9',orig:'上水站',dest:'尖沙咀東'}).match,'endpoints');
   assert.equal(api.detailedMatch([codedWrong],{operator:'KMB',route:'1',bound:'O',serviceType:'9',orig:'尖沙咀東',dest:'上水站'}).record,null);
 
+  // Special-route schedules render every official terminal departure, in each bound.
+  const routeDb=JSON.parse(fs.readFileSync('data/route-timetables.json','utf8'));
+  const out261x=api.renderRecord(routeDb.records.find(x=>x.operator==='KMB'&&x.route==='261X'&&x.bound==='O'),false);
+  const in261x=api.renderRecord(routeDb.records.find(x=>x.operator==='KMB'&&x.route==='261X'&&x.bound==='I'),false);
+  for(const time of ['06:55','07:15','17:45','18:30'])assert.match(out261x,new RegExp(`<time>${time}</time>`));
+  for(const time of ['07:00','07:20','18:00','18:20'])assert.match(in261x,new RegExp(`<time>${time}</time>`));
+  assert.match(out261x,/特別班次｜總站開出時間/);assert.match(out261x,/中途站到站時間以實時預報為準/);
+
   // Cross-midnight windows keep their duration and label the next day explicitly.
   const night=api.basicDays({287:[1380,90]},service.calendars);
   assert.equal(night.weekday.first,1380);assert.equal(night.weekday.last,1530);assert.equal(api.formatMinutes(1530),'翌日 01:30');

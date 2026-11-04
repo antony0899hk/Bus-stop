@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-19T14:32:44.944Z",
+  "generatedAt": "2026-11-04T00:00:00.000Z",
   "records": [
     {
       "operator": "KMB",
@@ -139,6 +139,58 @@
         "url": "https://search.kmb.hk/KMBWebSite/AnnouncementPicture.ashx?url=1768179402_2413_0.pdf",
         "lastVerified": "2026-09-19",
         "effectiveDate": "2026-01-19"
+      }
+    },
+    {
+      "operator": "KMB",
+      "route": "261X",
+      "bound": "O",
+      "serviceType": "1",
+      "kind": "special",
+      "origin": "掃管笏",
+      "destination": "粉嶺(祥華)",
+      "days": {
+        "weekday": {
+          "departures": ["06:55", "07:15", "17:45", "18:30"],
+          "note": "星期一至五，公眾假期除外"
+        },
+        "saturday": {
+          "departures": ["09:00", "18:00"]
+        },
+        "sunday_public_holiday": {
+          "departures": ["09:00", "18:00"]
+        }
+      },
+      "source": {
+        "url": "https://search.kmb.hk/TD_SS/261.pdf",
+        "lastVerified": "2026-11-04",
+        "effectiveDate": "2026-05-04"
+      }
+    },
+    {
+      "operator": "KMB",
+      "route": "261X",
+      "bound": "I",
+      "serviceType": "1",
+      "kind": "special",
+      "origin": "粉嶺(祥華)",
+      "destination": "掃管笏",
+      "days": {
+        "weekday": {
+          "departures": ["07:00", "07:20", "18:00", "18:20"],
+          "note": "星期一至五，公眾假期除外"
+        },
+        "saturday": {
+          "departures": ["09:00", "18:00"]
+        },
+        "sunday_public_holiday": {
+          "departures": ["09:00", "18:00"]
+        }
+      },
+      "source": {
+        "url": "https://search.kmb.hk/TD_SS/261.pdf",
+        "lastVerified": "2026-11-04",
+        "effectiveDate": "2026-05-04"
       }
     },
     {
